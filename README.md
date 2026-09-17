@@ -57,8 +57,10 @@ for a password: your credentials need to already work without prompting (an
 SSH key, or a credential helper). Otherwise the command fails with a visible
 error instead of hanging.
 
-**Editing.** An Editor tab with a filterable list of every file git tracks
-(plus untracked ones it isn't ignoring) and a CodeMirror pane beside it. Save
+**Editing.** An Editor tab with a collapsible tree of every file git tracks
+(plus untracked ones it isn't ignoring) and a CodeMirror pane beside it.
+Folders start closed, so a repo opens showing its shape rather than every file
+in it, and the filter box searches the whole tree. Save
 with the button or ctrl-S; the file then shows up under Changes, ready to
 stage and commit without leaving the page. Existing line endings are kept, so
 saving a CRLF file doesn't turn every line into a diff.

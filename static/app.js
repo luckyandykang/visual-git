@@ -40,6 +40,9 @@ let editor = null;
 let editorPath = null;
 let editorClean = true;
 let treeFiles = [];
+// Folders start closed, so opening a repo shows its shape rather than every
+// file it contains.
+const expandedDirectories = new Set();
 
 // --- server access ---------------------------------------------------------
 
@@ -88,10 +91,16 @@ function el(tag, props = {}, children = []) {
   return node;
 }
 
+// Returns the body element so callers can append their own buttons into it,
+// rather than next to the close button.
 function showAlert(message, kind = "error") {
   dom.alert.className = kind === "notice" ? "alert notice" : "alert";
-  dom.alert.replaceChildren(el("div", { text: message }));
-  return dom.alert;
+  const body = el("div", { class: "alert-body" }, [el("div", { text: message })]);
+  dom.alert.replaceChildren(
+    body,
+    el("button", { class: "alert-close", text: "✕", title: "Dismiss", onclick: hideAlert })
+  );
+  return body;
 }
 
 function hideAlert() {
@@ -187,7 +196,9 @@ function renderRemote() {
 }
 
 function offerForcePush() {
-  dom.alert.append(
+  const body = dom.alert.querySelector(".alert-body");
+  if (!body) return;
+  body.append(
     el("div", { class: "row" }, [
       el("button", {
         class: "danger",
@@ -587,41 +598,75 @@ async function loadTree() {
   renderTree();
 }
 
+function buildTree(paths) {
+  const root = { directories: new Map(), files: [] };
+  for (const path of paths) {
+    const parts = path.split("/");
+    let node = root;
+    for (const part of parts.slice(0, -1)) {
+      if (!node.directories.has(part)) {
+        node.directories.set(part, { directories: new Map(), files: [] });
+      }
+      node = node.directories.get(part);
+    }
+    node.files.push({ name: parts[parts.length - 1], path });
+  }
+  return root;
+}
+
+function renderTreeNode(node, prefix, depth, alwaysOpen) {
+  const rows = [];
+  const indent = `padding-left:${8 + depth * 12}px`;
+
+  for (const name of [...node.directories.keys()].sort()) {
+    const path = prefix ? `${prefix}/${name}` : name;
+    const open = alwaysOpen || expandedDirectories.has(path);
+    rows.push(
+      el("div", { class: "tree-dir", style: indent, title: path, onclick: () => toggleDirectory(path) }, [
+        el("span", { class: "tree-twisty", text: open ? "▾" : "▸" }),
+        document.createTextNode(name),
+      ])
+    );
+    if (open) {
+      rows.push(...renderTreeNode(node.directories.get(name), path, depth + 1, alwaysOpen));
+    }
+  }
+
+  for (const file of node.files.sort((a, b) => a.name.localeCompare(b.name))) {
+    rows.push(
+      el("div", {
+        class: file.path === editorPath ? "tree-file open" : "tree-file",
+        style: indent,
+        text: file.name,
+        title: file.path,
+        onclick: () => openFileInEditor(file.path),
+      })
+    );
+  }
+
+  return rows;
+}
+
+function toggleDirectory(path) {
+  if (expandedDirectories.has(path)) expandedDirectories.delete(path);
+  else expandedDirectories.add(path);
+  renderTree();
+}
+
 function renderTree() {
   const filter = dom.treeFilter.value.trim().toLowerCase();
-  const matches = treeFiles.filter((file) => file.toLowerCase().includes(filter));
-  const shown = matches.slice(0, 400);
+  const matches = filter
+    ? treeFiles.filter((file) => file.toLowerCase().includes(filter))
+    : treeFiles;
 
   dom.treeList.replaceChildren();
-  let lastDirectory = null;
-  for (const file of shown) {
-    const cut = file.lastIndexOf("/");
-    const directory = cut === -1 ? "" : file.slice(0, cut);
-    const name = cut === -1 ? file : file.slice(cut + 1);
-    if (directory !== lastDirectory) {
-      dom.treeList.append(el("div", { class: "tree-dir", text: directory || "/" }));
-      lastDirectory = directory;
-    }
-    dom.treeList.append(
-      el("div", {
-        class: file === editorPath ? "tree-file open" : "tree-file",
-        text: name,
-        title: file,
-        onclick: () => openFileInEditor(file),
-      })
-    );
+  if (!matches.length) {
+    dom.treeList.append(el("div", { class: "empty", text: "no files match" }));
+    return;
   }
 
-  if (!shown.length) {
-    dom.treeList.append(el("div", { class: "empty", text: "no files match" }));
-  } else if (matches.length > shown.length) {
-    dom.treeList.append(
-      el("div", {
-        class: "empty",
-        text: `${matches.length - shown.length} more — narrow the filter`,
-      })
-    );
-  }
+  // While filtering, showing the matches means showing the folders they sit in.
+  dom.treeList.append(...renderTreeNode(buildTree(matches), "", 0, Boolean(filter)));
 }
 
 async function openFileInEditor(path) {
@@ -651,6 +696,11 @@ async function openFileInEditor(path) {
   instance.clearHistory();
   dom.editorPath.textContent = path;
   setDirty(false);
+  // Open the folders above it, so it stays visible once a filter is cleared.
+  const parts = path.split("/");
+  for (let i = 1; i < parts.length; i++) {
+    expandedDirectories.add(parts.slice(0, i).join("/"));
+  }
   renderTree();
   instance.refresh();
   instance.focus();
