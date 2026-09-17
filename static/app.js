@@ -35,6 +35,7 @@ const dom = {
   trackChip: document.getElementById("track-chip"),
   alert: document.getElementById("alert"),
   branches: document.getElementById("branches"),
+  worktrees: document.getElementById("worktrees"),
   remoteState: document.getElementById("remote-state"),
   reflog: document.getElementById("reflog"),
   graph: document.getElementById("graph"),
@@ -343,6 +344,77 @@ function renderBranches() {
   if (!state.branches.length) {
     dom.branches.append(el("div", { class: "empty", text: t("branches.empty") }));
   }
+}
+
+function renderWorktrees() {
+  dom.worktrees.replaceChildren();
+  const trees = state.worktrees ?? [];
+
+  for (const tree of trees) {
+    const here = tree.path === state.repo;
+    const label = tree.path.split(/[\\/]/).filter(Boolean).pop() ?? tree.path;
+    const tags = [];
+    if (tree.main) tags.push(t("worktree.main"));
+    if (tree.detached) tags.push(t("worktree.detached"));
+    if (here) tags.push(t("worktree.current"));
+
+    const row = el("div", { class: here ? "row-item current" : "row-item" }, [
+      el("span", { class: "name", text: tree.branch ?? label, title: tree.path }),
+      tags.length ? el("span", { class: "meta", text: tags.join(" · ") }) : null,
+    ]);
+
+    const actions = el("div", { class: "row-actions" });
+    if (!here) {
+      actions.append(
+        el("button", {
+          class: "ghost small",
+          text: t("worktree.open"),
+          title: tree.path,
+          onclick: () => openWorktree(tree.path),
+        })
+      );
+    }
+    if (!tree.main && !here) {
+      actions.append(
+        el("button", {
+          class: "ghost small",
+          text: t("worktree.remove"),
+          title: `git worktree remove ${tree.path}`,
+          onclick: async () => {
+            const confirmed = await confirmAction({
+              title: t("confirm.removeWorktree.title"),
+              text: t("confirm.removeWorktree.text"),
+              command: `git worktree remove ${tree.path}`,
+            });
+            if (confirmed) run("removeWorktree", { path: tree.path, confirm: true });
+          },
+        })
+      );
+    }
+    if (actions.childElementCount) row.append(actions);
+    dom.worktrees.append(row);
+  }
+
+  if (!trees.length) {
+    dom.worktrees.append(el("div", { class: "empty", text: t("worktree.empty") }));
+  }
+}
+
+// Switching points the server at a different checkout, so anything tied to the
+// old one - the open file and the file tree - has to be let go.
+async function openWorktree(path) {
+  const results = await run("switchWorktree", { path });
+  if (!results) return;
+  editorPath = null;
+  editorClean = true;
+  treeFiles = [];
+  expandedDirectories.clear();
+  dom.editorPath.textContent = t("editor.noFile");
+  setDirty(false);
+  if (editor) editor.setValue("");
+  dom.diffPanel.classList.add("hidden");
+  openDiff = null;
+  await loadTree();
 }
 
 function renderReflog() {
@@ -930,6 +1002,7 @@ async function refresh() {
   renderHeader();
   renderRemote();
   renderBranches();
+  renderWorktrees();
   renderReflog();
   renderHistory();
   renderFiles();
@@ -985,6 +1058,7 @@ function applyLanguage(next) {
     renderHeader();
     renderRemote();
     renderBranches();
+    renderWorktrees();
     renderReflog();
     renderHistory();
     renderFiles();
@@ -1036,6 +1110,14 @@ document.getElementById("diff-close").onclick = () => {
 document.getElementById("open-rebase").onclick = openRebaseEditor;
 document.getElementById("rebase-cancel").onclick = () =>
   dom.rebaseModal.classList.add("hidden");
+
+document.getElementById("add-worktree").onclick = () => {
+  const input = document.getElementById("new-worktree");
+  const branch = input.value.trim();
+  if (!branch) return;
+  input.value = "";
+  run("addWorktree", { branch });
+};
 
 document.getElementById("create-branch").onclick = () => {
   const input = document.getElementById("new-branch");

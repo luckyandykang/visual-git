@@ -82,6 +82,19 @@
         </section>
 
         <section>
+          <h2 data-i18n="worktree.title">Worktrees</h2>
+          <p class="hint" data-i18n="worktree.hint">
+            A worktree checks out another branch into its own folder, so you can have two
+            branches open at once without stashing.
+          </p>
+          <div id="worktrees" class="list worktrees"></div>
+          <div class="inline-form">
+            <input id="new-worktree" type="text" data-i18n-placeholder="worktree.placeholder" />
+            <button id="add-worktree" data-i18n="worktree.add">add</button>
+          </div>
+        </section>
+
+        <section>
           <h2 data-i18n="reflog.title">Undo &amp; recovery</h2>
           <p class="hint" data-i18n="reflog.hint">
             Every state your repository has been in is recorded here, including ones no

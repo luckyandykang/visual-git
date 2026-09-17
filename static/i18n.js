@@ -30,6 +30,21 @@ export const TRANSLATIONS = {
     "branches.placeholder": "new-branch-name",
     "branches.empty": "no branches yet",
 
+    "worktree.title": "Worktrees",
+    "worktree.hint":
+      "A worktree checks out another branch into its own folder, so you can have two branches open at once without stashing.",
+    "worktree.add": "add",
+    "worktree.placeholder": "branch for new worktree",
+    "worktree.empty": "no worktrees yet",
+    "worktree.open": "open",
+    "worktree.remove": "remove",
+    "worktree.current": "open here",
+    "worktree.main": "main",
+    "worktree.detached": "detached",
+    "confirm.removeWorktree.title": "Remove this worktree?",
+    "confirm.removeWorktree.text":
+      "Its folder is deleted. The branch and its commits stay — only this checkout of them goes. git refuses if the folder has uncommitted changes.",
+
     "reflog.title": "Undo & recovery",
     "reflog.hint":
       "Every state your repository has been in is recorded here, including ones no branch points at any more. Restoring is how you undo a bad reset or rebase.",
@@ -161,6 +176,21 @@ export const TRANSLATIONS = {
     "branches.placeholder": "새-브랜치-이름",
     "branches.empty": "브랜치가 없다",
 
+    "worktree.title": "워크트리",
+    "worktree.hint":
+      "워크트리는 다른 브랜치를 별도 폴더에 체크아웃한다. stash 없이 두 브랜치를 동시에 열어둘 수 있다.",
+    "worktree.add": "추가",
+    "worktree.placeholder": "새 워크트리의 브랜치",
+    "worktree.empty": "워크트리가 없다",
+    "worktree.open": "열기",
+    "worktree.remove": "제거",
+    "worktree.current": "현재 열림",
+    "worktree.main": "본체",
+    "worktree.detached": "분리됨",
+    "confirm.removeWorktree.title": "이 워크트리를 제거할까?",
+    "confirm.removeWorktree.text":
+      "해당 폴더가 삭제된다. 브랜치와 커밋은 남고, 이 체크아웃만 사라진다. 커밋하지 않은 변경이 있으면 git이 거부한다.",
+
     "reflog.title": "되돌리기 & 복구",
     "reflog.hint":
       "저장소가 거쳐온 모든 상태가 여기 기록된다. 어떤 브랜치도 가리키지 않게 된 상태까지 남는다. 잘못된 reset이나 rebase는 여기서 되돌린다.",
@@ -288,6 +318,21 @@ export const TRANSLATIONS = {
     "branches.create": "作成",
     "branches.placeholder": "新しいブランチ名",
     "branches.empty": "ブランチがない",
+
+    "worktree.title": "ワークツリー",
+    "worktree.hint":
+      "ワークツリーは別のブランチを専用のフォルダに展開する。stash せずに二つのブランチを同時に開いておける。",
+    "worktree.add": "追加",
+    "worktree.placeholder": "新しいワークツリーのブランチ",
+    "worktree.empty": "ワークツリーがない",
+    "worktree.open": "開く",
+    "worktree.remove": "削除",
+    "worktree.current": "表示中",
+    "worktree.main": "本体",
+    "worktree.detached": "detached",
+    "confirm.removeWorktree.title": "このワークツリーを削除する?",
+    "confirm.removeWorktree.text":
+      "そのフォルダが削除される。ブランチとコミットは残り、この展開だけが消える。未コミットの変更があれば git が拒否する。",
 
     "reflog.title": "取り消しと復旧",
     "reflog.hint":

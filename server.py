@@ -210,6 +210,52 @@ def read_graph(repo, limit):
     return commits
 
 
+def read_worktrees(repo):
+    """Parse `git worktree list --porcelain`. The first entry is always the
+    main worktree; the rest are linked ones."""
+    result = run_git(repo, ["worktree", "list", "--porcelain"])
+    if result["code"] != 0:
+        return []
+
+    trees, current = [], None
+    for line in result["stdout"].splitlines():
+        if not line.strip():
+            continue
+        if line.startswith("worktree "):
+            current = {
+                "path": line[len("worktree "):],
+                "branch": None,
+                "detached": False,
+                "locked": False,
+            }
+            trees.append(current)
+        elif current is None:
+            continue
+        elif line.startswith("branch "):
+            current["branch"] = line[len("branch "):].replace("refs/heads/", "", 1)
+        elif line == "detached":
+            current["detached"] = True
+        elif line.startswith("locked"):
+            current["locked"] = True
+
+    for index, tree in enumerate(trees):
+        tree["main"] = index == 0
+    return trees
+
+
+def resolve_worktree(repo, payload):
+    """Accept only a path git itself reports as a worktree of this repository,
+    so the browser can never point the server at an arbitrary directory."""
+    target = payload.get("path")
+    if not isinstance(target, str) or not target:
+        raise BadRequest("'path' is required")
+    wanted = Path(target).resolve()
+    for tree in read_worktrees(repo):
+        if Path(tree["path"]).resolve() == wanted:
+            return tree
+    raise BadRequest("that path is not a worktree of this repository")
+
+
 def read_branches(repo):
     fmt = UNIT_SEP.join(
         ["%(refname:short)", "%(objectname)", "%(upstream:short)", "%(upstream:track)", "%(HEAD)"]
@@ -463,6 +509,57 @@ def action_push(repo, payload):
     return [run_git(repo, args, timeout=NETWORK_TIMEOUT)]
 
 
+def action_add_worktree(repo, payload):
+    """Create a worktree as a sibling of the main one, named after the branch.
+
+    The path is derived here rather than accepted from the browser, which keeps
+    the directories this can create to one folder.
+    """
+    branch = require_ref(payload, "branch")
+    slug = re.sub(r"[^A-Za-z0-9._-]", "-", branch).strip("-.")
+    if not slug:
+        raise BadRequest("that branch name leaves nothing usable for a folder name")
+
+    trees = read_worktrees(repo)
+    main_root = Path(trees[0]["path"]).resolve() if trees else Path(repo).resolve()
+    target = main_root.parent / f"{main_root.name}-{slug}"
+    if target.parent != main_root.parent:
+        raise BadRequest("refusing to build a path outside the repository's folder")
+    if target.exists():
+        raise BadRequest(f"{target.name} already exists")
+
+    known = run_git(repo, ["rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"])
+    if known["code"] == 0:
+        args = ["worktree", "add", str(target), branch]
+    else:
+        args = ["worktree", "add", "-b", branch, str(target)]
+    return [run_git(repo, args)]
+
+
+def action_remove_worktree(repo, payload):
+    require_confirmed(payload)
+    tree = resolve_worktree(repo, payload)
+    if tree["main"]:
+        raise BadRequest("the main worktree cannot be removed")
+    if Path(tree["path"]).resolve() == Path(repo).resolve():
+        raise BadRequest("this is the worktree you are looking at; switch away from it first")
+    return [run_git(repo, ["worktree", "remove", tree["path"]])]
+
+
+def action_switch_worktree(repo, payload):
+    """Point the server at another worktree of the same repository."""
+    tree = resolve_worktree(repo, payload)
+    Handler.repo = Path(tree["path"])
+    return [
+        {
+            "command": f"(switched to {tree['path']})",
+            "stdout": "",
+            "stderr": "",
+            "code": 0,
+        }
+    ]
+
+
 REBASE_VERBS = {"pick", "reword", "squash", "fixup", "drop"}
 
 
@@ -550,6 +647,9 @@ ACTIONS = {
     "fetch": action_fetch,
     "pull": action_pull,
     "push": action_push,
+    "addWorktree": action_add_worktree,
+    "removeWorktree": action_remove_worktree,
+    "switchWorktree": action_switch_worktree,
 }
 
 
@@ -596,6 +696,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         "commits": read_graph(self.repo, limit),
                         "branches": read_branches(self.repo),
                         "reflog": read_reflog(self.repo, 50),
+                        "worktrees": read_worktrees(self.repo),
                         "repo": str(self.repo),
                     }
                 )

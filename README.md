@@ -45,6 +45,14 @@ column per line of development, so merges and divergence are visible. Branches
 list their ahead/behind counts against their upstream. Merge conflicts surface
 the conflicted files and an abort button.
 
+**Worktrees.** List the repository's worktrees, add one for a branch, switch
+the app to it without restarting, and remove one you are done with. A new
+worktree is created as a sibling of the main one, named `<repo>-<branch>` — the
+path is derived by the server rather than typed in the browser, so the only
+folder this can create directories in is the one holding your repository.
+Switching accepts only a path git itself lists as a worktree of the open
+repository.
+
 **Remotes.** Fetch (`--all --prune`), pull and push, with how far ahead or
 behind your branch is shown before you act. Pull is `--ff-only`: if the
 histories have diverged it fails and changes nothing rather than quietly
