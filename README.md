@@ -60,7 +60,9 @@ error instead of hanging.
 **Editing.** An Editor tab with a collapsible tree of every file git tracks
 (plus untracked ones it isn't ignoring) and a CodeMirror pane beside it.
 Folders start closed, so a repo opens showing its shape rather than every file
-in it, and the filter box searches the whole tree. Save
+in it, and the filter box searches the whole tree. Files sort by extension
+first, so files of a kind sit together. Brackets and quotes close themselves.
+Save
 with the button or ctrl-S; the file then shows up under Changes, ready to
 stage and commit without leaving the page. Existing line endings are kept, so
 saving a CRLF file doesn't turn every line into a diff.
@@ -69,6 +71,12 @@ saving a CRLF file doesn't turn every line into a diff.
 
 The `.git` directory is not readable or writable through the editor — editing
 hooks or config from a web page is a long way round to running arbitrary code.
+
+**Interface.** English, 한국어 and 日本語, picked from the top bar and
+remembered per browser (it starts on your browser's language if that is one of
+them). Six themes — dark, light, Nord, Solarized, Dracula, Gruvbox — which
+recolour the editor's syntax highlighting along with everything else. The
+command log has a clear button.
 
 ## What it does not do
 

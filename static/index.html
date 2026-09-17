@@ -28,13 +28,27 @@
         <span>visual-git</span>
       </div>
       <div class="repo-info">
-        <span id="repo-path" class="repo-path">loading…</span>
+        <span id="repo-path" class="repo-path">…</span>
         <span id="branch-chip" class="chip"></span>
         <span id="track-chip" class="chip muted"></span>
       </div>
       <div class="topbar-actions">
-        <button id="theme-toggle" class="ghost" title="Switch between light and dark">theme</button>
-        <button id="refresh" class="ghost" title="Re-read the repository state">refresh</button>
+        <select id="language" class="topbar-select" data-i18n-title="topbar.language">
+          <option value="en">English</option>
+          <option value="ko">한국어</option>
+          <option value="ja">日本語</option>
+        </select>
+        <select id="theme" class="topbar-select" data-i18n-title="topbar.theme">
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="nord">Nord</option>
+          <option value="solarized">Solarized</option>
+          <option value="dracula">Dracula</option>
+          <option value="gruvbox">Gruvbox</option>
+        </select>
+        <button id="refresh" class="ghost" data-i18n="topbar.refresh" data-i18n-title="topbar.refreshTitle">
+          refresh
+        </button>
       </div>
     </header>
 
@@ -43,31 +57,33 @@
     <main class="layout">
       <aside class="panel panel-left">
         <section>
-          <h2>Remote</h2>
-          <p class="hint">
+          <h2 data-i18n="remote.title">Remote</h2>
+          <p class="hint" data-i18n="remote.hint">
             Fetch only looks; pull moves your branch forward; push sends your commits.
           </p>
           <div id="remote-state" class="remote-state"></div>
           <div class="row">
-            <button id="fetch" class="ghost small" data-command="git fetch --all --prune">fetch</button>
-            <button id="pull" class="ghost small" data-command="git pull --ff-only">pull</button>
-            <button id="push" class="ghost small" data-command="git push">push</button>
+            <button id="fetch" class="ghost small" data-i18n="remote.fetch">fetch</button>
+            <button id="pull" class="ghost small" data-i18n="remote.pull">pull</button>
+            <button id="push" class="ghost small" data-i18n="remote.push">push</button>
           </div>
         </section>
 
         <section>
-          <h2>Branches</h2>
-          <p class="hint">Click a branch to check it out. Merge brings another branch into this one.</p>
+          <h2 data-i18n="branches.title">Branches</h2>
+          <p class="hint" data-i18n="branches.hint">
+            Click a branch to check it out. Merge brings another branch into this one.
+          </p>
           <div id="branches" class="list branches"></div>
           <div class="inline-form">
-            <input id="new-branch" type="text" placeholder="new-branch-name" />
-            <button id="create-branch" data-command="git checkout -b &lt;name&gt;">create</button>
+            <input id="new-branch" type="text" data-i18n-placeholder="branches.placeholder" />
+            <button id="create-branch" data-i18n="branches.create">create</button>
           </div>
         </section>
 
         <section>
-          <h2>Undo &amp; recovery</h2>
-          <p class="hint">
+          <h2 data-i18n="reflog.title">Undo &amp; recovery</h2>
+          <p class="hint" data-i18n="reflog.hint">
             Every state your repository has been in is recorded here, including ones no
             branch points at any more. Restoring is how you undo a bad reset or rebase.
           </p>
@@ -78,16 +94,16 @@
       <section class="panel panel-center">
         <div class="panel-head">
           <div class="tabs">
-            <button id="tab-history" class="tab active">History</button>
-            <button id="tab-editor" class="tab">Editor</button>
+            <button id="tab-history" class="tab active" data-i18n="tabs.history">History</button>
+            <button id="tab-editor" class="tab" data-i18n="tabs.editor">Editor</button>
           </div>
-          <button id="open-rebase" class="ghost" title="Reorder, squash, reword or drop recent commits">
+          <button id="open-rebase" class="ghost" data-i18n="history.rebase" data-i18n-title="history.rebaseTitle">
             rewrite history…
           </button>
         </div>
 
         <div id="view-history" class="view">
-          <p class="hint">
+          <p class="hint" data-i18n="history.hint">
             Each dot is a commit; each column is a line of development. Merges join two columns.
           </p>
           <div class="graph-scroll">
@@ -99,19 +115,19 @@
         </div>
 
         <div id="view-editor" class="view hidden">
-          <p class="hint">
+          <p class="hint" data-i18n="editor.hint">
             Edit a file, save it, and it appears under Changes on the right — ready to stage and commit.
           </p>
           <div class="editor-layout">
             <div class="file-tree">
-              <input id="tree-filter" type="text" placeholder="filter files" />
+              <input id="tree-filter" type="text" data-i18n-placeholder="editor.filter" />
               <div id="tree-list" class="list"></div>
             </div>
             <div class="editor-pane">
               <div class="editor-head">
-                <span id="editor-path" class="editor-path">no file open</span>
-                <span id="editor-dirty" class="dirty hidden">unsaved</span>
-                <button id="editor-save" class="primary small" disabled>save</button>
+                <span id="editor-path" class="editor-path" data-i18n="editor.noFile">no file open</span>
+                <span id="editor-dirty" class="dirty hidden" data-i18n="editor.unsaved">unsaved</span>
+                <button id="editor-save" class="primary small" disabled data-i18n="editor.save">save</button>
               </div>
               <div id="editor-host" class="editor-host"></div>
             </div>
@@ -122,29 +138,33 @@
       <aside class="panel panel-right">
         <section>
           <div class="panel-head">
-            <h2>Staged</h2>
-            <button id="unstage-all" class="ghost small" data-command="git reset">unstage all</button>
+            <h2 data-i18n="staged.title">Staged</h2>
+            <button id="unstage-all" class="ghost small" data-i18n="staged.unstageAll">unstage all</button>
           </div>
-          <p class="hint">These changes go into the next commit.</p>
+          <p class="hint" data-i18n="staged.hint">These changes go into the next commit.</p>
           <div id="staged" class="list files"></div>
         </section>
 
         <section>
           <div class="panel-head">
-            <h2>Changes</h2>
-            <button id="stage-all" class="ghost small" data-command="git add --all">stage all</button>
+            <h2 data-i18n="changes.title">Changes</h2>
+            <button id="stage-all" class="ghost small" data-i18n="changes.stageAll">stage all</button>
           </div>
-          <p class="hint">Edited but not yet staged. Click a file to see and stage individual hunks.</p>
+          <p class="hint" data-i18n="changes.hint">
+            Edited but not yet staged. Click a file to see and stage individual hunks.
+          </p>
           <div id="unstaged" class="list files"></div>
         </section>
 
         <section class="commit-box">
-          <h2>Commit</h2>
-          <textarea id="commit-message" rows="3" placeholder="What changed, and why?"></textarea>
+          <h2 data-i18n="commit.title">Commit</h2>
+          <textarea id="commit-message" rows="3" data-i18n-placeholder="commit.placeholder"></textarea>
           <div class="row">
-            <button id="commit" class="primary" data-command="git commit -m &lt;message&gt;">commit</button>
-            <button id="amend" data-command="git commit --amend -m &lt;message&gt;" title="Replace the last commit instead of adding a new one">amend</button>
-            <button id="undo-commit" class="danger" data-command="git reset --soft HEAD~1" title="Remove the last commit but keep its changes staged">undo last commit</button>
+            <button id="commit" class="primary" data-i18n="commit.commit">commit</button>
+            <button id="amend" data-i18n="commit.amend" data-i18n-title="commit.amendTitle">amend</button>
+            <button id="undo-commit" class="danger" data-i18n="commit.undo" data-i18n-title="commit.undoTitle">
+              undo last commit
+            </button>
           </div>
         </section>
       </aside>
@@ -153,9 +173,9 @@
     <section id="diff-panel" class="diff-panel hidden">
       <div class="panel-head">
         <h2 id="diff-title">diff</h2>
-        <div>
+        <div class="row">
           <span id="diff-command" class="command-chip"></span>
-          <button id="diff-close" class="ghost small">close</button>
+          <button id="diff-close" class="ghost small" data-i18n="diff.close">close</button>
         </div>
       </div>
       <div id="diff-body" class="diff-body"></div>
@@ -163,8 +183,13 @@
 
     <footer class="console">
       <div class="panel-head">
-        <h2>Commands run</h2>
-        <span class="hint inline">Everything this app does is a plain git command — here they are.</span>
+        <h2 data-i18n="log.title">Commands run</h2>
+        <div class="row">
+          <span class="hint inline" data-i18n="log.hint">
+            Everything this app does is a plain git command — here they are.
+          </span>
+          <button id="clear-log" class="ghost small" data-i18n="log.clear">clear</button>
+        </div>
       </div>
       <div id="log" class="log"></div>
     </footer>
@@ -175,25 +200,25 @@
         <p id="modal-text"></p>
         <pre id="modal-command" class="command-block"></pre>
         <div class="row end">
-          <button id="modal-cancel" class="ghost">cancel</button>
-          <button id="modal-confirm" class="danger">confirm</button>
+          <button id="modal-cancel" class="ghost" data-i18n="modal.cancel">cancel</button>
+          <button id="modal-confirm" class="danger" data-i18n="modal.confirm">confirm</button>
         </div>
       </div>
     </div>
 
     <div id="rebase-modal" class="modal hidden">
       <div class="modal-card wide">
-        <h2>Rewrite history</h2>
-        <p class="hint">
+        <h2 data-i18n="rebase.title">Rewrite history</h2>
+        <p class="hint" data-i18n="rebase.hint">
           Choose what happens to each commit, oldest at the top — that is the order git
-          replays them in. <strong>squash</strong> folds a commit into the one above it,
-          <strong>drop</strong> deletes it, <strong>reword</strong> changes its message.
-          This rewrites commits, so avoid it on history you have already shared.
+          replays them in. squash folds a commit into the one above it, drop deletes it,
+          reword changes its message. This rewrites commits, so avoid it on history you
+          have already shared.
         </p>
         <div id="rebase-list" class="rebase-list"></div>
         <div class="row end">
-          <button id="rebase-cancel" class="ghost">cancel</button>
-          <button id="rebase-run" class="danger">run rebase</button>
+          <button id="rebase-cancel" class="ghost" data-i18n="modal.cancel">cancel</button>
+          <button id="rebase-run" class="danger" data-i18n="rebase.run">run rebase</button>
         </div>
       </div>
     </div>

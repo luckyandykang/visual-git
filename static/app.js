@@ -1,6 +1,33 @@
 import { layoutCommits, renderGraph, ROW_HEIGHT } from "/graph.js";
+import { TRANSLATIONS, LANGUAGES } from "/i18n.js";
 
 const TOKEN = new URLSearchParams(location.search).get("token") ?? "";
+const THEMES = ["dark", "light", "nord", "solarized", "dracula", "gruvbox"];
+
+let language = "en";
+
+function t(key, vars) {
+  let text = TRANSLATIONS[language]?.[key] ?? TRANSLATIONS.en[key] ?? key;
+  if (vars) {
+    for (const [name, value] of Object.entries(vars)) {
+      text = text.replaceAll(`{${name}}`, value);
+    }
+  }
+  return text;
+}
+
+function applyTranslations() {
+  document.documentElement.lang = language;
+  for (const node of document.querySelectorAll("[data-i18n]")) {
+    node.textContent = t(node.dataset.i18n);
+  }
+  for (const node of document.querySelectorAll("[data-i18n-placeholder]")) {
+    node.placeholder = t(node.dataset.i18nPlaceholder);
+  }
+  for (const node of document.querySelectorAll("[data-i18n-title]")) {
+    node.title = t(node.dataset.i18nTitle);
+  }
+}
 
 const dom = {
   repoPath: document.getElementById("repo-path"),
@@ -98,7 +125,7 @@ function showAlert(message, kind = "error") {
   const body = el("div", { class: "alert-body" }, [el("div", { text: message })]);
   dom.alert.replaceChildren(
     body,
-    el("button", { class: "alert-close", text: "✕", title: "Dismiss", onclick: hideAlert })
+    el("button", { class: "alert-close", text: "✕", title: t("alert.dismiss"), onclick: hideAlert })
   );
   return body;
 }
@@ -137,12 +164,17 @@ function confirmAction({ title, text, command }) {
       el("button", {
         id: "modal-confirm",
         class: "danger",
-        text: "confirm",
+        text: t("modal.confirm"),
         onclick: () => finish(true),
       })
     );
     document.getElementById("modal-cancel").replaceWith(
-      el("button", { id: "modal-cancel", class: "ghost", text: "cancel", onclick: () => finish(false) })
+      el("button", {
+        id: "modal-cancel",
+        class: "ghost",
+        text: t("modal.cancel"),
+        onclick: () => finish(false),
+      })
     );
   });
 }
@@ -165,11 +197,11 @@ function renderHeader() {
 
   if (status.upstream) {
     const parts = [];
-    if (status.ahead) parts.push(`${status.ahead} ahead`);
-    if (status.behind) parts.push(`${status.behind} behind`);
+    if (status.ahead) parts.push(t("header.ahead", { n: status.ahead }));
+    if (status.behind) parts.push(t("header.behind", { n: status.behind }));
     dom.trackChip.textContent = parts.length
       ? `${status.upstream}: ${parts.join(", ")}`
-      : `in sync with ${status.upstream}`;
+      : t("header.inSync", { upstream: status.upstream });
   } else {
     dom.trackChip.textContent = "";
   }
@@ -180,17 +212,15 @@ function renderRemote() {
   dom.remoteState.replaceChildren();
 
   if (!status.upstream) {
-    dom.remoteState.append(
-      el("div", { text: "No upstream yet — pushing will publish this branch to origin." })
-    );
+    dom.remoteState.append(el("div", { text: t("remote.noUpstream") }));
     return;
   }
 
   const parts = [];
-  if (status.ahead) parts.push(`${status.ahead} commit(s) to push`);
-  if (status.behind) parts.push(`${status.behind} to pull`);
+  if (status.ahead) parts.push(t("remote.toPush", { n: status.ahead }));
+  if (status.behind) parts.push(t("remote.toPull", { n: status.behind }));
   dom.remoteState.append(
-    el("div", { text: parts.length ? parts.join(", ") : "up to date with the remote" }),
+    el("div", { text: parts.length ? parts.join(", ") : t("remote.upToDate") }),
     el("span", { class: "upstream", text: status.upstream })
   );
 }
@@ -202,12 +232,11 @@ function offerForcePush() {
     el("div", { class: "row" }, [
       el("button", {
         class: "danger",
-        text: "force push (--force-with-lease)",
+        text: t("action.forcePush"),
         onclick: async () => {
           const confirmed = await confirmAction({
-            title: "Overwrite the remote branch?",
-            text:
-              "This replaces the commits on the remote with yours. --force-with-lease refuses if someone else pushed since your last fetch, but work of theirs that you have never fetched would still be lost.",
+            title: t("confirm.forcePush.title"),
+            text: t("confirm.forcePush.text"),
             command: "git push --force-with-lease",
           });
           if (confirmed) pushChanges({ force: true });
@@ -241,15 +270,12 @@ function renderInProgressState() {
   const { status } = state;
   if (status.rebaseInProgress || status.mergeInProgress) {
     const which = status.rebaseInProgress ? "rebase" : "merge";
-    const node = showAlert(
-      `A ${which} is in progress. Resolve the conflicted files and commit, or abort to return to where you started.`,
-      "notice"
-    );
+    const node = showAlert(t("alert.inProgress", { which }), "notice");
     node.append(
       el("div", { class: "row" }, [
         el("button", {
           class: "danger",
-          text: `abort ${which}`,
+          text: t("action.abort", { which }),
           onclick: () => run("abort", { which }),
         }),
       ])
@@ -274,7 +300,7 @@ function renderBranches() {
       const actions = el("div", { class: "row-actions" }, [
         el("button", {
           class: "ghost small",
-          text: "checkout",
+          text: t("action.checkout"),
           title: `git checkout ${branch.name}`,
           onclick: (event) => {
             event.stopPropagation();
@@ -283,7 +309,7 @@ function renderBranches() {
         }),
         el("button", {
           class: "ghost small",
-          text: "merge",
+          text: t("action.merge"),
           title: `git merge --no-edit ${branch.name}`,
           onclick: (event) => {
             event.stopPropagation();
@@ -295,14 +321,13 @@ function renderBranches() {
         actions.append(
           el("button", {
             class: "ghost small",
-            text: "delete",
+            text: t("action.delete"),
             title: `git branch --delete ${branch.name}`,
             onclick: async (event) => {
               event.stopPropagation();
               const confirmed = await confirmAction({
-                title: `Delete ${branch.name}?`,
-                text:
-                  "Commits only reachable from this branch become hard to find, though the reflog keeps them for a while.",
+                title: t("confirm.deleteBranch.title", { name: branch.name }),
+                text: t("confirm.deleteBranch.text"),
                 command: `git branch --delete ${branch.name}`,
               });
               if (confirmed) run("deleteBranch", { name: branch.name, confirm: true });
@@ -316,7 +341,7 @@ function renderBranches() {
   }
 
   if (!state.branches.length) {
-    dom.branches.append(el("div", { class: "empty", text: "no branches yet" }));
+    dom.branches.append(el("div", { class: "empty", text: t("branches.empty") }));
   }
 }
 
@@ -328,13 +353,12 @@ function renderReflog() {
       el("span", { class: "meta", text: `${entry.selector} · ${entry.when}` }),
       el("button", {
         class: "ghost small",
-        text: "restore",
+        text: t("action.restore"),
         title: `git reset --hard ${entry.hash.slice(0, 8)}`,
         onclick: async () => {
           const confirmed = await confirmAction({
-            title: "Restore this state?",
-            text:
-              "Uncommitted changes in your working tree are lost. The state you are leaving is itself written to the reflog, so this is reversible the same way.",
+            title: t("confirm.restore.title"),
+            text: t("confirm.restore.text"),
             command: `git reset --hard ${entry.hash.slice(0, 8)}`,
           });
           if (confirmed) run("restoreState", { hash: entry.hash, confirm: true });
@@ -344,7 +368,7 @@ function renderReflog() {
     dom.reflog.append(row);
   }
   if (!state.reflog.length) {
-    dom.reflog.append(el("div", { class: "empty", text: "no history recorded yet" }));
+    dom.reflog.append(el("div", { class: "empty", text: t("reflog.empty") }));
   }
 }
 
@@ -361,7 +385,7 @@ function renderHistory() {
       row.append(el("span", { class: isHead ? "ref-tag head" : "ref-tag", text: ref }));
     }
     row.append(
-      el("span", { class: "subject", text: commit.subject || "(no message)" }),
+      el("span", { class: "subject", text: commit.subject || t("history.noMessage") }),
       el("span", { class: "who", text: commit.author }),
       el("span", { class: "who", text: commit.when }),
       el("span", { class: "hash", text: commit.hash.slice(0, 8) })
@@ -370,7 +394,7 @@ function renderHistory() {
   }
 
   if (!layout.rows.length) {
-    dom.commitRows.append(el("div", { class: "empty", text: "no commits yet" }));
+    dom.commitRows.append(el("div", { class: "empty", text: t("history.empty") }));
   }
 }
 
@@ -386,7 +410,7 @@ function fileRow(file, { staged, untracked }) {
     actions.append(
       el("button", {
         class: "ghost small",
-        text: "unstage",
+        text: t("action.unstage"),
         title: `git restore --staged -- ${file.path}`,
         onclick: (event) => {
           event.stopPropagation();
@@ -398,7 +422,7 @@ function fileRow(file, { staged, untracked }) {
     actions.append(
       el("button", {
         class: "ghost small",
-        text: "stage",
+        text: t("action.stage"),
         title: `git add -- ${file.path}`,
         onclick: (event) => {
           event.stopPropagation();
@@ -407,14 +431,13 @@ function fileRow(file, { staged, untracked }) {
       }),
       el("button", {
         class: "ghost small",
-        text: "discard",
+        text: t("action.discard"),
         title: untracked ? `git clean --force -- ${file.path}` : `git restore -- ${file.path}`,
         onclick: async (event) => {
           event.stopPropagation();
           const confirmed = await confirmAction({
-            title: `Discard changes to ${file.path}?`,
-            text:
-              "These edits were never committed, so git has no copy of them. This cannot be undone.",
+            title: t("confirm.discard.title", { path: file.path }),
+            text: t("confirm.discard.text"),
             command: untracked
               ? `git clean --force -- ${file.path}`
               : `git restore -- ${file.path}`,
@@ -435,13 +458,13 @@ function renderFiles() {
     dom.staged.append(fileRow(file, { staged: true, untracked: false }));
   }
   if (!status.staged.length) {
-    dom.staged.append(el("div", { class: "empty", text: "nothing staged" }));
+    dom.staged.append(el("div", { class: "empty", text: t("staged.empty") }));
   }
 
   dom.unstaged.replaceChildren();
   for (const file of status.conflicted) {
     const row = fileRow({ ...file, code: "!" }, { staged: false, untracked: false });
-    row.title = "Conflicted: edit the file to resolve, then stage it";
+    row.title = t("changes.conflicted");
     dom.unstaged.append(row);
   }
   for (const file of status.unstaged) {
@@ -453,7 +476,7 @@ function renderFiles() {
   const changeCount =
     status.unstaged.length + status.untracked.length + status.conflicted.length;
   if (!changeCount) {
-    dom.unstaged.append(el("div", { class: "empty", text: "working tree clean" }));
+    dom.unstaged.append(el("div", { class: "empty", text: t("changes.empty") }));
   }
 }
 
@@ -496,7 +519,7 @@ async function showDiff(path, { staged, untracked }) {
 
   const hunks = splitHunks(data.diff);
   if (!hunks.length) {
-    dom.diffBody.append(el("div", { class: "empty", text: "no textual changes to show" }));
+    dom.diffBody.append(el("div", { class: "empty", text: t("diff.empty") }));
   }
 
   hunks.forEach((lines, index) => {
@@ -507,7 +530,7 @@ async function showDiff(path, { staged, untracked }) {
       head.append(
         el("button", {
           class: "ghost small",
-          text: staged ? "unstage this hunk" : "stage this hunk",
+          text: staged ? t("diff.unstageHunk") : t("diff.stageHunk"),
           title: staged
             ? "git apply --cached --reverse (just this hunk)"
             : "git apply --cached (just this hunk)",
@@ -617,6 +640,14 @@ function buildTree(paths) {
   return root;
 }
 
+// A leading dot marks a hidden file, not an extension: ".gitignore" sorts as a
+// name with no extension rather than under "g".
+function fileSortKey(name) {
+  const dot = name.lastIndexOf(".");
+  const extension = dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
+  return [extension, name.toLowerCase()];
+}
+
 function renderTreeNode(node, prefix, depth, alwaysOpen) {
   const rows = [];
   const indent = `padding-left:${8 + depth * 12}px`;
@@ -635,7 +666,12 @@ function renderTreeNode(node, prefix, depth, alwaysOpen) {
     }
   }
 
-  for (const file of node.files.sort((a, b) => a.name.localeCompare(b.name))) {
+  // Sorted by extension first, so files of a kind sit together, then by name.
+  for (const file of node.files.sort((a, b) => {
+    const [extensionA, nameA] = fileSortKey(a.name);
+    const [extensionB, nameB] = fileSortKey(b.name);
+    return extensionA.localeCompare(extensionB) || nameA.localeCompare(nameB);
+  })) {
     rows.push(
       el("div", {
         class: file.path === editorPath ? "tree-file open" : "tree-file",
@@ -664,7 +700,7 @@ function renderTree() {
 
   dom.treeList.replaceChildren();
   if (!matches.length) {
-    dom.treeList.append(el("div", { class: "empty", text: "no files match" }));
+    dom.treeList.append(el("div", { class: "empty", text: t("editor.noFiles") }));
     return;
   }
 
@@ -675,9 +711,9 @@ function renderTree() {
 async function openFileInEditor(path) {
   if (!editorClean) {
     const confirmed = await confirmAction({
-      title: "Discard unsaved edits?",
-      text: `${editorPath} has changes that were never written to disk. Git cannot recover these, because it has never seen them.`,
-      command: "(nothing is run — this only discards what is in the editor)",
+      title: t("confirm.discardEdits.title"),
+      text: t("confirm.discardEdits.text", { path: editorPath }),
+      command: t("confirm.discardEdits.command"),
     });
     if (!confirmed) return;
   }
@@ -774,9 +810,7 @@ function headChain(limit) {
 function openRebaseEditor() {
   const { chain, baseHash } = headChain(8);
   if (!baseHash || chain.length < 1) {
-    showAlert(
-      "Nothing to rewrite here: this needs at least one ordinary commit sitting on top of an earlier one."
-    );
+    showAlert(t("alert.nothingToRewrite"));
     return;
   }
 
@@ -829,7 +863,10 @@ function openRebaseEditor() {
         detail.append(
           el("input", {
             type: "text",
-            placeholder: item.action === "squash" ? "combined message" : "new message",
+            placeholder:
+              item.action === "squash"
+                ? t("rebase.squashPlaceholder")
+                : t("rebase.rewordPlaceholder"),
             value: item.message || item.subject,
             oninput: (event) => {
               item.message = event.target.value;
@@ -854,17 +891,16 @@ function openRebaseEditor() {
 
   document.getElementById("rebase-run").onclick = async () => {
     if (items[0].action === "squash" || items[0].action === "fixup") {
-      showAlert("The oldest commit has nothing above it to fold into.");
+      showAlert(t("alert.oldestSquash"));
       return;
     }
     if (items.every((item) => item.action === "drop")) {
-      showAlert("Dropping every commit would leave nothing to rebase.");
+      showAlert(t("alert.allDropped"));
       return;
     }
     const confirmed = await confirmAction({
-      title: "Rewrite these commits?",
-      text:
-        "Rebasing replaces commits with new ones. If you have already pushed them, the remote and your branch will disagree. The reflog keeps the old chain if you need it back.",
+      title: t("confirm.rebase.title"),
+      text: t("confirm.rebase.text"),
       command: `git rebase --interactive ${baseHash.slice(0, 8)}`,
     });
     if (!confirmed) return;
@@ -914,30 +950,68 @@ async function refresh() {
   }
 }
 
-function applyTheme(theme) {
-  document.documentElement.dataset.theme = theme;
+// Private windows can refuse storage, so a preference that cannot be saved
+// simply does not persist rather than breaking the page.
+function remember(key, value) {
   try {
-    localStorage.setItem("visual-git-theme", theme);
+    localStorage.setItem(key, value);
   } catch {
-    // Private windows can refuse storage; the theme just won't persist.
+    // ignored
   }
 }
 
-function initTheme() {
-  let stored = null;
+function recall(key) {
   try {
-    stored = localStorage.getItem("visual-git-theme");
+    return localStorage.getItem(key);
   } catch {
-    stored = null;
+    return null;
   }
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  document.getElementById("theme").value = theme;
+  remember("visual-git-theme", theme);
+}
+
+function applyLanguage(next) {
+  language = next;
+  document.getElementById("language").value = next;
+  remember("visual-git-language", next);
+  applyTranslations();
+  // The panels are built in JS, so they have to be drawn again to pick up the
+  // new strings.
+  if (state) {
+    renderHeader();
+    renderRemote();
+    renderBranches();
+    renderReflog();
+    renderHistory();
+    renderFiles();
+  }
+  if (treeFiles.length) renderTree();
+  if (!editorPath) dom.editorPath.textContent = t("editor.noFile");
+}
+
+function initPreferences() {
+  const storedTheme = recall("visual-git-theme");
   const prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
-  applyTheme(stored ?? (prefersLight ? "light" : "dark"));
+  applyTheme(THEMES.includes(storedTheme) ? storedTheme : prefersLight ? "light" : "dark");
+
+  const storedLanguage = recall("visual-git-language");
+  const browserLanguage = (navigator.language ?? "en").slice(0, 2);
+  const initial = LANGUAGES.includes(storedLanguage)
+    ? storedLanguage
+    : LANGUAGES.includes(browserLanguage)
+      ? browserLanguage
+      : "en";
+  applyLanguage(initial);
 }
 
 document.getElementById("refresh").onclick = refresh;
-document.getElementById("theme-toggle").onclick = () => {
-  applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
-};
+document.getElementById("theme").onchange = (event) => applyTheme(event.target.value);
+document.getElementById("language").onchange = (event) => applyLanguage(event.target.value);
+document.getElementById("clear-log").onclick = () => dom.log.replaceChildren();
 document.getElementById("tab-history").onclick = () => showTab("history");
 document.getElementById("tab-editor").onclick = () => showTab("editor");
 dom.treeFilter.oninput = renderTree;
@@ -974,7 +1048,7 @@ document.getElementById("create-branch").onclick = () => {
 document.getElementById("commit").onclick = () => {
   const message = dom.commitMessage.value.trim();
   if (!message) {
-    showAlert("Write a commit message first.");
+    showAlert(t("alert.needMessage"));
     return;
   }
   dom.commitMessage.value = "";
@@ -984,14 +1058,13 @@ document.getElementById("commit").onclick = () => {
 document.getElementById("amend").onclick = async () => {
   const message = dom.commitMessage.value.trim() || null;
   const confirmed = await confirmAction({
-    title: "Replace the last commit?",
-    text:
-      "Amending creates a new commit in place of the old one. If the old one was already pushed, the remote will disagree with your branch.",
+    title: t("confirm.amend.title"),
+    text: t("confirm.amend.text"),
     command: "git commit --amend",
   });
   if (!confirmed) return;
   if (!message) {
-    showAlert("Write the replacement message in the commit box first.");
+    showAlert(t("alert.needAmendMessage"));
     return;
   }
   dom.commitMessage.value = "";
@@ -1000,12 +1073,12 @@ document.getElementById("amend").onclick = async () => {
 
 document.getElementById("undo-commit").onclick = async () => {
   const confirmed = await confirmAction({
-    title: "Undo the last commit?",
-    text: "The commit is removed but every change it contained stays staged, ready to re-commit.",
+    title: t("confirm.undoCommit.title"),
+    text: t("confirm.undoCommit.text"),
     command: "git reset --soft HEAD~1",
   });
   if (confirmed) run("undoCommit", { confirm: true });
 };
 
-initTheme();
+initPreferences();
 refresh();

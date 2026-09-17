@@ -1,4 +1,5 @@
-:root {
+:root,
+:root[data-theme="dark"] {
   --bg: #0f1216;
   --surface: #161a21;
   --surface-2: #1d222b;
@@ -12,6 +13,13 @@
   --danger-soft: rgba(232, 87, 111, 0.14);
   --success: #27ae91;
   --warn: #f2994a;
+  --syntax-keyword: #c879e8;
+  --syntax-number: #f2994a;
+  --syntax-def: #4f9dfd;
+  --syntax-string: #27ae91;
+  --syntax-comment: #6b7686;
+  --syntax-meta: #5ac8d8;
+  --syntax-tag: #e8576f;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --radius: 8px;
 }
@@ -30,6 +38,105 @@
   --danger-soft: rgba(201, 48, 74, 0.1);
   --success: #128a6e;
   --warn: #b26a1d;
+  --syntax-keyword: #8b3fb8;
+  --syntax-number: #b26a1d;
+  --syntax-def: #1f6feb;
+  --syntax-string: #128a6e;
+  --syntax-comment: #8a93a3;
+  --syntax-meta: #0f7c8a;
+  --syntax-tag: #c9304a;
+}
+
+:root[data-theme="nord"] {
+  --bg: #2e3440;
+  --surface: #3b4252;
+  --surface-2: #434c5e;
+  --border: #4c566a;
+  --text: #eceff4;
+  --text-dim: #d8dee9;
+  --text-faint: #7b88a1;
+  --accent: #88c0d0;
+  --accent-soft: rgba(136, 192, 208, 0.16);
+  --danger: #bf616a;
+  --danger-soft: rgba(191, 97, 106, 0.16);
+  --success: #a3be8c;
+  --warn: #ebcb8b;
+  --syntax-keyword: #81a1c1;
+  --syntax-number: #b48ead;
+  --syntax-def: #88c0d0;
+  --syntax-string: #a3be8c;
+  --syntax-comment: #6d7a94;
+  --syntax-meta: #8fbcbb;
+  --syntax-tag: #bf616a;
+}
+
+:root[data-theme="solarized"] {
+  --bg: #002b36;
+  --surface: #073642;
+  --surface-2: #0a4453;
+  --border: #12586b;
+  --text: #eee8d5;
+  --text-dim: #93a1a1;
+  --text-faint: #6d8288;
+  --accent: #268bd2;
+  --accent-soft: rgba(38, 139, 210, 0.18);
+  --danger: #dc322f;
+  --danger-soft: rgba(220, 50, 47, 0.18);
+  --success: #859900;
+  --warn: #b58900;
+  --syntax-keyword: #859900;
+  --syntax-number: #d33682;
+  --syntax-def: #268bd2;
+  --syntax-string: #2aa198;
+  --syntax-comment: #657b83;
+  --syntax-meta: #6c71c4;
+  --syntax-tag: #cb4b16;
+}
+
+:root[data-theme="dracula"] {
+  --bg: #282a36;
+  --surface: #343746;
+  --surface-2: #414458;
+  --border: #4a4d63;
+  --text: #f8f8f2;
+  --text-dim: #c3c3d0;
+  --text-faint: #8f90a6;
+  --accent: #bd93f9;
+  --accent-soft: rgba(189, 147, 249, 0.18);
+  --danger: #ff5555;
+  --danger-soft: rgba(255, 85, 85, 0.16);
+  --success: #50fa7b;
+  --warn: #ffb86c;
+  --syntax-keyword: #ff79c6;
+  --syntax-number: #bd93f9;
+  --syntax-def: #50fa7b;
+  --syntax-string: #f1fa8c;
+  --syntax-comment: #6272a4;
+  --syntax-meta: #8be9fd;
+  --syntax-tag: #ff79c6;
+}
+
+:root[data-theme="gruvbox"] {
+  --bg: #282828;
+  --surface: #32302f;
+  --surface-2: #3c3836;
+  --border: #504945;
+  --text: #ebdbb2;
+  --text-dim: #d5c4a1;
+  --text-faint: #a89984;
+  --accent: #83a598;
+  --accent-soft: rgba(131, 165, 152, 0.18);
+  --danger: #fb4934;
+  --danger-soft: rgba(251, 73, 52, 0.16);
+  --success: #b8bb26;
+  --warn: #fabd2f;
+  --syntax-keyword: #fb4934;
+  --syntax-number: #d3869b;
+  --syntax-def: #83a598;
+  --syntax-string: #b8bb26;
+  --syntax-comment: #928374;
+  --syntax-meta: #8ec07c;
+  --syntax-tag: #fe8019;
 }
 
 * {
@@ -129,6 +236,15 @@ h2 {
 .topbar-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+
+.topbar-select {
+  width: auto;
+  background: var(--surface-2);
+  font-size: 13px;
+  padding: 6px 8px;
+  cursor: pointer;
 }
 
 /* --- buttons --- */
@@ -142,6 +258,9 @@ button {
   border-radius: 6px;
   padding: 6px 12px;
   cursor: pointer;
+  /* Labels change length with the language; wrapping one onto two lines
+     squashes the button rather than widening it. */
+  white-space: nowrap;
   transition: background 0.12s ease, border-color 0.12s ease;
 }
 
@@ -335,6 +454,10 @@ section {
   display: flex;
   gap: 6px;
   margin-top: 8px;
+}
+
+.inline-form input {
+  min-width: 0;
 }
 
 .remote-state {
@@ -567,29 +690,29 @@ section {
 }
 
 .editor-host .cm-keyword {
-  color: #c879e8;
+  color: var(--syntax-keyword);
 }
 .editor-host .cm-atom,
 .editor-host .cm-number {
-  color: #f2994a;
+  color: var(--syntax-number);
 }
 .editor-host .cm-def,
 .editor-host .cm-variable-2 {
-  color: #4f9dfd;
+  color: var(--syntax-def);
 }
 .editor-host .cm-string,
 .editor-host .cm-string-2 {
-  color: #27ae91;
+  color: var(--syntax-string);
 }
 .editor-host .cm-comment {
-  color: var(--text-faint);
+  color: var(--syntax-comment);
   font-style: italic;
 }
 .editor-host .cm-meta {
-  color: #5ac8d8;
+  color: var(--syntax-meta);
 }
 .editor-host .cm-tag {
-  color: #e8576f;
+  color: var(--syntax-tag);
 }
 
 /* --- commit graph --- */
