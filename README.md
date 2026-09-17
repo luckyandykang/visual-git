@@ -25,6 +25,39 @@ any folder inside one and it finds the root. One repo per server; use `--port`
 to run a second alongside it. `--no-browser` skips opening a window. Stop it
 with ctrl-c.
 
+### The launcher
+
+On Windows, double-click **`visual-git.bat`** instead. It runs `git pull` to
+update itself, lists the repositories you opened before, and takes either a
+number from that list or a new path:
+
+```
+visual-git
+Checking for updates...
+  Up to date.
+
+Recent repositories:
+  1. C:\Users\you\..ps\Hard-Algorithms
+  2. C:\Users\you\projects\something
+
+Enter a number, or a path (blank for 1):
+>
+```
+
+The list lives in `~/.visual-git-recent.json`, outside the repository, and
+paths that no longer exist drop off it.
+
+To build it into a single `.exe` instead, on the machine that will run it:
+
+```sh
+pip install pyinstaller
+pyinstaller --onefile --name visual-git --add-data "static;static" --hidden-import server launcher.py
+```
+
+Put the resulting `dist/visual-git.exe` **in the visual-git folder** — it runs
+`git pull` in whichever directory it sits in. (On macOS or Linux the
+`--add-data` separator is `:` rather than `;`.)
+
 ## What it does
 
 **Staging and committing.** Stage and unstage whole files, or click a file to
