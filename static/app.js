@@ -8,6 +8,7 @@ const dom = {
   trackChip: document.getElementById("track-chip"),
   alert: document.getElementById("alert"),
   branches: document.getElementById("branches"),
+  remoteState: document.getElementById("remote-state"),
   reflog: document.getElementById("reflog"),
   graph: document.getElementById("graph"),
   commitRows: document.getElementById("commit-rows"),
@@ -152,6 +153,66 @@ function renderHeader() {
       : `in sync with ${status.upstream}`;
   } else {
     dom.trackChip.textContent = "";
+  }
+}
+
+function renderRemote() {
+  const { status } = state;
+  dom.remoteState.replaceChildren();
+
+  if (!status.upstream) {
+    dom.remoteState.append(
+      el("div", { text: "No upstream yet — pushing will publish this branch to origin." })
+    );
+    return;
+  }
+
+  const parts = [];
+  if (status.ahead) parts.push(`${status.ahead} commit(s) to push`);
+  if (status.behind) parts.push(`${status.behind} to pull`);
+  dom.remoteState.append(
+    el("div", { text: parts.length ? parts.join(", ") : "up to date with the remote" }),
+    el("span", { class: "upstream", text: status.upstream })
+  );
+}
+
+function offerForcePush() {
+  dom.alert.append(
+    el("div", { class: "row" }, [
+      el("button", {
+        class: "danger",
+        text: "force push (--force-with-lease)",
+        onclick: async () => {
+          const confirmed = await confirmAction({
+            title: "Overwrite the remote branch?",
+            text:
+              "This replaces the commits on the remote with yours. --force-with-lease refuses if someone else pushed since your last fetch, but work of theirs that you have never fetched would still be lost.",
+            command: "git push --force-with-lease",
+          });
+          if (confirmed) pushChanges({ force: true });
+        },
+      }),
+    ])
+  );
+}
+
+async function pushChanges({ force = false } = {}) {
+  const { branch, upstream, detached } = state.status;
+  const payload = force ? { force: true, confirm: true } : {};
+  if (!upstream && branch && !detached) {
+    payload.setUpstream = true;
+    payload.remote = "origin";
+    payload.branch = branch;
+  }
+
+  const results = await run("push", payload);
+  if (!results || force) return;
+
+  // A rejected push means the remote has commits we do not; that is the one
+  // case where force-with-lease is the honest next step.
+  const failed = results.find((result) => result.code !== 0);
+  if (failed && /rejected|non-fast-forward|fetch first/i.test(failed.stderr)) {
+    offerForcePush();
   }
 }
 
@@ -592,6 +653,7 @@ async function refresh() {
     return;
   }
   renderHeader();
+  renderRemote();
   renderBranches();
   renderReflog();
   renderHistory();
@@ -636,6 +698,9 @@ document.getElementById("refresh").onclick = refresh;
 document.getElementById("theme-toggle").onclick = () => {
   applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
 };
+document.getElementById("fetch").onclick = () => run("fetch");
+document.getElementById("pull").onclick = () => run("pull");
+document.getElementById("push").onclick = () => pushChanges();
 document.getElementById("stage-all").onclick = () => run("stageAll");
 document.getElementById("unstage-all").onclick = () => run("unstageAll");
 document.getElementById("diff-close").onclick = () => {

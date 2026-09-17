@@ -28,6 +28,19 @@
     <main class="layout">
       <aside class="panel panel-left">
         <section>
+          <h2>Remote</h2>
+          <p class="hint">
+            Fetch only looks; pull moves your branch forward; push sends your commits.
+          </p>
+          <div id="remote-state" class="remote-state"></div>
+          <div class="row">
+            <button id="fetch" class="ghost small" data-command="git fetch --all --prune">fetch</button>
+            <button id="pull" class="ghost small" data-command="git pull --ff-only">pull</button>
+            <button id="push" class="ghost small" data-command="git push">push</button>
+          </div>
+        </section>
+
+        <section>
           <h2>Branches</h2>
           <p class="hint">Click a branch to check it out. Merge brings another branch into this one.</p>
           <div id="branches" class="list branches"></div>

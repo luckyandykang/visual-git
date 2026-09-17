@@ -37,22 +37,34 @@ class BadRequest(Exception):
     pass
 
 
-def run_git(repo, args, stdin_text=None, extra_env=None):
+def run_git(repo, args, stdin_text=None, extra_env=None, timeout=None):
     """Run one git command. Arguments are always a list, never a shell string."""
     env = os.environ.copy()
+    # Without this, a command needing a password would block the request
+    # forever instead of failing with something the UI can show.
     env["GIT_TERMINAL_PROMPT"] = "0"
     if extra_env:
         env.update(extra_env)
-    proc = subprocess.run(
-        ["git", *args],
-        cwd=repo,
-        env=env,
-        input=stdin_text,
-        capture_output=True,
-        text=True,
-    )
+    command = "git " + " ".join(shlex.quote(a) for a in args)
+    try:
+        proc = subprocess.run(
+            ["git", *args],
+            cwd=repo,
+            env=env,
+            input=stdin_text,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "command": command,
+            "stdout": "",
+            "stderr": f"no response after {timeout}s - check the network or your git credentials",
+            "code": -1,
+        }
     return {
-        "command": "git " + " ".join(shlex.quote(a) for a in args),
+        "command": command,
         "stdout": proc.stdout,
         "stderr": proc.stderr,
         "code": proc.returncode,
@@ -135,9 +147,10 @@ def read_status(repo):
         elif line.startswith("# branch.upstream "):
             state["upstream"] = line[len("# branch.upstream "):]
         elif line.startswith("# branch.ab "):
+            # Written as "+2 -1": the signs are markers, not negative numbers.
             ahead, behind = line[len("# branch.ab "):].split()
-            state["ahead"] = int(ahead)
-            state["behind"] = int(behind)
+            state["ahead"] = abs(int(ahead))
+            state["behind"] = abs(int(behind))
         elif line.startswith("1 ") or line.startswith("2 "):
             fields = line.split(" ", 8)
             xy = fields[1]
@@ -366,6 +379,30 @@ def action_abort(repo, payload):
     raise BadRequest("'which' must be 'rebase' or 'merge'")
 
 
+NETWORK_TIMEOUT = 120
+
+
+def action_fetch(repo, payload):
+    """Update remote-tracking branches. Touches nothing in the working tree."""
+    return [run_git(repo, ["fetch", "--all", "--prune"], timeout=NETWORK_TIMEOUT)]
+
+
+def action_pull(repo, payload):
+    """Fast-forward only: if the histories diverged this fails and changes
+    nothing, rather than quietly writing a merge commit."""
+    return [run_git(repo, ["pull", "--ff-only"], timeout=NETWORK_TIMEOUT)]
+
+
+def action_push(repo, payload):
+    args = ["push"]
+    if payload.get("force") is True:
+        require_confirmed(payload)
+        args.append("--force-with-lease")
+    if payload.get("setUpstream") is True:
+        args += ["--set-upstream", require_ref(payload, "remote"), require_ref(payload, "branch")]
+    return [run_git(repo, args, timeout=NETWORK_TIMEOUT)]
+
+
 REBASE_VERBS = {"pick", "reword", "squash", "fixup", "drop"}
 
 
@@ -449,6 +486,9 @@ ACTIONS = {
     "merge": action_merge,
     "abort": action_abort,
     "rebase": action_rebase,
+    "fetch": action_fetch,
+    "pull": action_pull,
+    "push": action_push,
 }
 
 

@@ -40,9 +40,20 @@ column per line of development, so merges and divergence are visible. Branches
 list their ahead/behind counts against their upstream. Merge conflicts surface
 the conflicted files and an abort button.
 
+**Remotes.** Fetch (`--all --prune`), pull and push, with how far ahead or
+behind your branch is shown before you act. Pull is `--ff-only`: if the
+histories have diverged it fails and changes nothing rather than quietly
+writing a merge commit. Push offers `--force-with-lease` only after a push is
+rejected, behind a confirmation — it refuses if the remote moved since your
+last fetch.
+
+Remote commands run with `GIT_TERMINAL_PROMPT=0`, so they cannot stop to ask
+for a password: your credentials need to already work without prompting (an
+SSH key, or a credential helper). Otherwise the command fails with a visible
+error instead of hanging.
+
 ## What it does not do
 
-- No `push`, `pull` or `fetch`. Nothing here touches a remote.
 - Hunk-level staging, not line-level.
 - The rebase editor covers the run of ordinary commits below `HEAD`, up to
   eight of them. It stops at the first merge commit, because a plain
