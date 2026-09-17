@@ -70,6 +70,14 @@ export const TRANSLATIONS = {
     "editor.unsaved": "unsaved",
     "editor.save": "save",
     "editor.noFiles": "no files match",
+    "editor.create": "new",
+    "editor.newPlaceholder": "path/for/new-file.cpp",
+    "editor.rename": "rename",
+    "editor.delete": "delete",
+    "editor.renamePrompt": "New path for {path}",
+    "confirm.deleteFile.title": "Delete {path}?",
+    "confirm.deleteFile.text":
+      "A tracked file is removed with git rm, so the deletion is staged and recoverable from the last commit. An untracked file is gone for good.",
 
     "staged.title": "Staged",
     "staged.unstageAll": "unstage all",
@@ -218,6 +226,14 @@ export const TRANSLATIONS = {
     "editor.unsaved": "저장 안 됨",
     "editor.save": "저장",
     "editor.noFiles": "검색 결과 없음",
+    "editor.create": "새 파일",
+    "editor.newPlaceholder": "경로/새-파일.cpp",
+    "editor.rename": "이름 변경",
+    "editor.delete": "삭제",
+    "editor.renamePrompt": "{path}의 새 경로",
+    "confirm.deleteFile.title": "{path}를 삭제할까요?",
+    "confirm.deleteFile.text":
+      "추적 중인 파일은 git rm으로 지워지므로 삭제가 스테이지되고 마지막 커밋에서 되살릴 수 있습니다. 추적되지 않는 파일은 완전히 사라집니다.",
 
     "staged.title": "스테이지됨",
     "staged.unstageAll": "모두 해제",
@@ -367,6 +383,14 @@ export const TRANSLATIONS = {
     "editor.unsaved": "未保存",
     "editor.save": "保存",
     "editor.noFiles": "該当なし",
+    "editor.create": "新規",
+    "editor.newPlaceholder": "パス/新しいファイル.cpp",
+    "editor.rename": "名前変更",
+    "editor.delete": "削除",
+    "editor.renamePrompt": "{path} の新しいパス",
+    "confirm.deleteFile.title": "{path} を削除しますか?",
+    "confirm.deleteFile.text":
+      "追跡中のファイルは git rm で消えるため削除がステージされ、最後のコミットから戻せます。追跡されていないファイルは完全に消えます。",
 
     "staged.title": "ステージ済み",
     "staged.unstageAll": "すべて解除",

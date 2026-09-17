@@ -432,6 +432,53 @@ def action_save_file(repo, payload):
     return [{"command": f"(editor) wrote {path}", "stdout": "", "stderr": "", "code": 0}]
 
 
+def is_tracked(repo, path):
+    return run_git(repo, ["ls-files", "--error-unmatch", "--", path])["code"] == 0
+
+
+def action_create_file(repo, payload):
+    path = require_editable_path(repo, payload, "path")
+    target = Path(repo) / path
+    if target.exists():
+        raise BadRequest("that file already exists")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.touch()
+    return [{"command": f"(editor) created {path}", "stdout": "", "stderr": "", "code": 0}]
+
+
+def action_delete_file(repo, payload):
+    require_confirmed(payload)
+    path = require_editable_path(repo, payload, "path")
+    target = Path(repo) / path
+    if not target.is_file():
+        raise BadRequest("no such file")
+    # git rm records the deletion in the index; an untracked file git has never
+    # seen is simply removed.
+    if is_tracked(repo, path):
+        return [run_git(repo, ["rm", "--", path])]
+    target.unlink()
+    return [{"command": f"(editor) deleted {path}", "stdout": "", "stderr": "", "code": 0}]
+
+
+def action_rename_file(repo, payload):
+    path = require_editable_path(repo, payload, "path")
+    new_path = require_editable_path(repo, payload, "newPath")
+    source = Path(repo) / path
+    destination = Path(repo) / new_path
+    if not source.is_file():
+        raise BadRequest("no such file")
+    if destination.exists():
+        raise BadRequest("something is already at that path")
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if is_tracked(repo, path):
+        return [run_git(repo, ["mv", "--", path, new_path])]
+    source.rename(destination)
+    return [
+        {"command": f"(editor) renamed {path} to {new_path}", "stdout": "", "stderr": "", "code": 0}
+    ]
+
+
 def action_commit(repo, payload):
     message = require_text(payload, "message")
     args = ["commit", "--message", message]
@@ -635,6 +682,9 @@ ACTIONS = {
     "discard": action_discard,
     "stageHunk": action_stage_hunk,
     "saveFile": action_save_file,
+    "createFile": action_create_file,
+    "deleteFile": action_delete_file,
+    "renameFile": action_rename_file,
     "commit": action_commit,
     "undoCommit": action_undo_commit,
     "restoreState": action_restore_state,

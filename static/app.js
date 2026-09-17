@@ -59,6 +59,8 @@ const dom = {
   editorPath: document.getElementById("editor-path"),
   editorDirty: document.getElementById("editor-dirty"),
   editorSave: document.getElementById("editor-save"),
+  editorRename: document.getElementById("editor-rename"),
+  editorDelete: document.getElementById("editor-delete"),
   editorHost: document.getElementById("editor-host"),
 };
 
@@ -419,13 +421,9 @@ function renderWorktrees() {
 async function openWorktree(path) {
   const results = await run("switchWorktree", { path });
   if (!results) return;
-  editorPath = null;
-  editorClean = true;
+  closeEditor();
   treeFiles = [];
   expandedDirectories.clear();
-  dom.editorPath.textContent = t("editor.noFile");
-  setDirty(false);
-  if (editor) editor.setValue("");
   dom.diffPanel.classList.add("hidden");
   openDiff = null;
   await loadTree();
@@ -680,6 +678,53 @@ function setDirty(dirty) {
   editorClean = !dirty;
   dom.editorDirty.classList.toggle("hidden", !dirty);
   dom.editorSave.disabled = !dirty || !editorPath;
+  dom.editorRename.disabled = !editorPath;
+  dom.editorDelete.disabled = !editorPath;
+}
+
+function closeEditor() {
+  editorPath = null;
+  dom.editorPath.textContent = t("editor.noFile");
+  if (editor) editor.setValue("");
+  setDirty(false);
+}
+
+async function createNewFile() {
+  const input = document.getElementById("new-file");
+  const path = input.value.trim();
+  if (!path) return;
+  const results = await run("createFile", { path });
+  if (!results || results.some((result) => result.code !== 0)) return;
+  input.value = "";
+  await loadTree();
+  openFileInEditor(path);
+}
+
+async function renameOpenFile() {
+  if (!editorPath) return;
+  const next = prompt(t("editor.renamePrompt", { path: editorPath }), editorPath)?.trim();
+  if (!next || next === editorPath) return;
+
+  const results = await run("renameFile", { path: editorPath, newPath: next });
+  if (!results || results.some((result) => result.code !== 0)) return;
+  editorPath = next;
+  dom.editorPath.textContent = next;
+  await loadTree();
+}
+
+async function deleteOpenFile() {
+  if (!editorPath) return;
+  const confirmed = await confirmAction({
+    title: t("confirm.deleteFile.title", { path: editorPath }),
+    text: t("confirm.deleteFile.text"),
+    command: `git rm -- ${editorPath}`,
+  });
+  if (!confirmed) return;
+
+  const results = await run("deleteFile", { path: editorPath, confirm: true });
+  if (!results || results.some((result) => result.code !== 0)) return;
+  closeEditor();
+  await loadTree();
 }
 
 function ensureEditor() {
@@ -1104,6 +1149,9 @@ document.getElementById("tab-history").onclick = () => showTab("history");
 document.getElementById("tab-editor").onclick = () => showTab("editor");
 dom.treeFilter.oninput = renderTree;
 dom.editorSave.onclick = saveOpenFile;
+dom.editorRename.onclick = renameOpenFile;
+dom.editorDelete.onclick = deleteOpenFile;
+document.getElementById("create-file").onclick = createNewFile;
 
 document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
