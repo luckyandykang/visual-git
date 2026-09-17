@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>visual-git</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="mark"></span>
+        <span>visual-git</span>
+      </div>
+      <div class="repo-info">
+        <span id="repo-path" class="repo-path">loading…</span>
+        <span id="branch-chip" class="chip"></span>
+        <span id="track-chip" class="chip muted"></span>
+      </div>
+      <div class="topbar-actions">
+        <button id="theme-toggle" class="ghost" title="Switch between light and dark">theme</button>
+        <button id="refresh" class="ghost" title="Re-read the repository state">refresh</button>
+      </div>
+    </header>
+
+    <div id="alert" class="alert hidden"></div>
+
+    <main class="layout">
+      <aside class="panel panel-left">
+        <section>
+          <h2>Branches</h2>
+          <p class="hint">Click a branch to check it out. Merge brings another branch into this one.</p>
+          <div id="branches" class="list branches"></div>
+          <div class="inline-form">
+            <input id="new-branch" type="text" placeholder="new-branch-name" />
+            <button id="create-branch" data-command="git checkout -b &lt;name&gt;">create</button>
+          </div>
+        </section>
+
+        <section>
+          <h2>Undo &amp; recovery</h2>
+          <p class="hint">
+            Every state your repository has been in is recorded here, including ones no
+            branch points at any more. Restoring is how you undo a bad reset or rebase.
+          </p>
+          <div id="reflog" class="list reflog"></div>
+        </section>
+      </aside>
+
+      <section class="panel panel-center">
+        <div class="panel-head">
+          <h2>History</h2>
+          <button id="open-rebase" class="ghost" title="Reorder, squash, reword or drop recent commits">
+            rewrite history…
+          </button>
+        </div>
+        <p class="hint">
+          Each dot is a commit; each column is a line of development. Merges join two columns.
+        </p>
+        <div class="graph-scroll">
+          <div class="graph-inner">
+            <svg id="graph" class="graph" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div id="commit-rows" class="commit-rows"></div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel panel-right">
+        <section>
+          <div class="panel-head">
+            <h2>Staged</h2>
+            <button id="unstage-all" class="ghost small" data-command="git reset">unstage all</button>
+          </div>
+          <p class="hint">These changes go into the next commit.</p>
+          <div id="staged" class="list files"></div>
+        </section>
+
+        <section>
+          <div class="panel-head">
+            <h2>Changes</h2>
+            <button id="stage-all" class="ghost small" data-command="git add --all">stage all</button>
+          </div>
+          <p class="hint">Edited but not yet staged. Click a file to see and stage individual hunks.</p>
+          <div id="unstaged" class="list files"></div>
+        </section>
+
+        <section class="commit-box">
+          <h2>Commit</h2>
+          <textarea id="commit-message" rows="3" placeholder="What changed, and why?"></textarea>
+          <div class="row">
+            <button id="commit" class="primary" data-command="git commit -m &lt;message&gt;">commit</button>
+            <button id="amend" data-command="git commit --amend -m &lt;message&gt;" title="Replace the last commit instead of adding a new one">amend</button>
+            <button id="undo-commit" class="danger" data-command="git reset --soft HEAD~1" title="Remove the last commit but keep its changes staged">undo last commit</button>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <section id="diff-panel" class="diff-panel hidden">
+      <div class="panel-head">
+        <h2 id="diff-title">diff</h2>
+        <div>
+          <span id="diff-command" class="command-chip"></span>
+          <button id="diff-close" class="ghost small">close</button>
+        </div>
+      </div>
+      <div id="diff-body" class="diff-body"></div>
+    </section>
+
+    <footer class="console">
+      <div class="panel-head">
+        <h2>Commands run</h2>
+        <span class="hint inline">Everything this app does is a plain git command — here they are.</span>
+      </div>
+      <div id="log" class="log"></div>
+    </footer>
+
+    <div id="modal" class="modal hidden">
+      <div class="modal-card">
+        <h2 id="modal-title"></h2>
+        <p id="modal-text"></p>
+        <pre id="modal-command" class="command-block"></pre>
+        <div class="row end">
+          <button id="modal-cancel" class="ghost">cancel</button>
+          <button id="modal-confirm" class="danger">confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="rebase-modal" class="modal hidden">
+      <div class="modal-card wide">
+        <h2>Rewrite history</h2>
+        <p class="hint">
+          Choose what happens to each commit, oldest at the top — that is the order git
+          replays them in. <strong>squash</strong> folds a commit into the one above it,
+          <strong>drop</strong> deletes it, <strong>reword</strong> changes its message.
+          This rewrites commits, so avoid it on history you have already shared.
+        </p>
+        <div id="rebase-list" class="rebase-list"></div>
+        <div class="row end">
+          <button id="rebase-cancel" class="ghost">cancel</button>
+          <button id="rebase-run" class="danger">run rebase</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
