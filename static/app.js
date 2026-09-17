@@ -36,6 +36,8 @@ const dom = {
   alert: document.getElementById("alert"),
   branches: document.getElementById("branches"),
   worktrees: document.getElementById("worktrees"),
+  stashes: document.getElementById("stashes"),
+  commitSearch: document.getElementById("commit-search"),
   remoteState: document.getElementById("remote-state"),
   reflog: document.getElementById("reflog"),
   graph: document.getElementById("graph"),
@@ -362,6 +364,45 @@ function renderBranches() {
   }
 }
 
+function renderStashes() {
+  dom.stashes.replaceChildren();
+  const stashes = state.stashes ?? [];
+
+  for (const stash of stashes) {
+    dom.stashes.append(
+      el("div", { class: "row-item" }, [
+        el("span", { class: "name", text: stash.subject, title: stash.ref }),
+        el("span", { class: "meta", text: stash.when }),
+        el("div", { class: "row-actions" }, [
+          el("button", {
+            class: "ghost small",
+            text: t("stash.apply"),
+            title: `git stash pop ${stash.ref}`,
+            onclick: () => run("stashApply", { ref: stash.ref }),
+          }),
+          el("button", {
+            class: "ghost small",
+            text: t("stash.drop"),
+            title: `git stash drop ${stash.ref}`,
+            onclick: async () => {
+              const confirmed = await confirmAction({
+                title: t("confirm.stashDrop.title"),
+                text: t("confirm.stashDrop.text"),
+                command: `git stash drop ${stash.ref}`,
+              });
+              if (confirmed) run("stashDrop", { ref: stash.ref, confirm: true });
+            },
+          }),
+        ]),
+      ])
+    );
+  }
+
+  if (!stashes.length) {
+    dom.stashes.append(el("div", { class: "empty", text: t("stash.empty") }));
+  }
+}
+
 function renderWorktrees() {
   dom.worktrees.replaceChildren();
   const trees = state.worktrees ?? [];
@@ -457,13 +498,38 @@ function renderReflog() {
 }
 
 function renderHistory() {
-  const layout = layoutCommits(state.commits);
-  const headHash = findHeadHash(state.commits);
-  renderGraph(dom.graph, layout, headHash);
+  const query = dom.commitSearch.value.trim().toLowerCase();
+  const matches = query
+    ? state.commits.filter((commit) =>
+        [commit.subject, commit.author, commit.hash].some((field) =>
+          field.toLowerCase().includes(query)
+        )
+      )
+    : state.commits;
+
+  // Lane assignment only makes sense over a full parent chain, so a filtered
+  // list is shown without the graph rather than with a misleading one.
+  const layout = layoutCommits(query ? [] : matches);
+  renderGraph(dom.graph, layout, findHeadHash(state.commits));
 
   dom.commitRows.replaceChildren();
-  for (const { commit } of layout.rows) {
-    const row = el("div", { class: "commit-row", style: `height:${ROW_HEIGHT}px` });
+  if (query) {
+    dom.commitRows.append(
+      el("div", {
+        class: "empty",
+        text: t("history.filtered", { n: matches.length, total: state.commits.length }),
+      })
+    );
+  }
+
+  const rows = query ? matches.map((commit) => ({ commit })) : layout.rows;
+  for (const { commit } of rows) {
+    const row = el("div", {
+      class: "commit-row",
+      style: `height:${ROW_HEIGHT}px`,
+      title: t("history.showCommit"),
+      onclick: () => showCommit(commit),
+    });
     for (const ref of commit.refs) {
       const isHead = ref === "HEAD" || ref.startsWith("HEAD ->");
       row.append(el("span", { class: isHead ? "ref-tag head" : "ref-tag", text: ref }));
@@ -477,8 +543,10 @@ function renderHistory() {
     dom.commitRows.append(row);
   }
 
-  if (!layout.rows.length) {
-    dom.commitRows.append(el("div", { class: "empty", text: t("history.empty") }));
+  if (!rows.length) {
+    dom.commitRows.append(
+      el("div", { class: "empty", text: query ? t("history.searchEmpty") : t("history.empty") })
+    );
   }
 }
 
@@ -580,6 +648,34 @@ function splitHunks(diffText) {
   }
   if (current) hunks.push(current);
   return hunks;
+}
+
+// The commit view reuses the diff panel, but there is nothing to stage in a
+// commit that already happened, so it renders without the hunk buttons.
+async function showCommit(commit) {
+  let data;
+  try {
+    data = await api(`/api/commit?hash=${encodeURIComponent(commit.hash)}`);
+  } catch (error) {
+    showAlert(error.message);
+    return;
+  }
+
+  openDiff = null;
+  dom.diffTitle.textContent = `${commit.hash.slice(0, 8)}  ${commit.subject || t("history.noMessage")}`;
+  dom.diffCommand.textContent = data.command;
+  dom.diffBody.replaceChildren();
+
+  const body = el("div");
+  for (const line of data.text.split("\n")) {
+    let cls = "diff-line";
+    if (line.startsWith("+") && !line.startsWith("+++")) cls += " add";
+    else if (line.startsWith("-") && !line.startsWith("---")) cls += " del";
+    else if (line.startsWith("@@") || line.startsWith("diff --git")) cls += " meta";
+    body.append(el("div", { class: cls, text: line }));
+  }
+  dom.diffBody.append(body);
+  dom.diffPanel.classList.remove("hidden");
 }
 
 async function showDiff(path, { staged, untracked }) {
@@ -1062,6 +1158,7 @@ async function refresh() {
   renderRemote();
   renderBranches();
   renderWorktrees();
+  renderStashes();
   renderReflog();
   renderHistory();
   renderFiles();
@@ -1100,6 +1197,28 @@ function recall(key) {
   }
 }
 
+// Left-panel sections collapse by clicking their heading. With branches,
+// worktrees, stashes and the reflog stacked up, the lower ones otherwise sit
+// below the fold.
+function setupCollapsibleSections() {
+  const collapsed = new Set((recall("visual-git-collapsed") ?? "").split(",").filter(Boolean));
+
+  for (const section of document.querySelectorAll(".panel-left section")) {
+    const heading = section.querySelector("h2");
+    const key = heading?.dataset.i18n;
+    if (!key) continue;
+
+    heading.classList.add("collapsible");
+    if (collapsed.has(key)) section.classList.add("collapsed");
+    heading.addEventListener("click", () => {
+      section.classList.toggle("collapsed");
+      if (section.classList.contains("collapsed")) collapsed.add(key);
+      else collapsed.delete(key);
+      remember("visual-git-collapsed", [...collapsed].join(","));
+    });
+  }
+}
+
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   document.getElementById("theme").value = theme;
@@ -1118,6 +1237,7 @@ function applyLanguage(next) {
     renderRemote();
     renderBranches();
     renderWorktrees();
+    renderStashes();
     renderReflog();
     renderHistory();
     renderFiles();
@@ -1173,6 +1293,17 @@ document.getElementById("open-rebase").onclick = openRebaseEditor;
 document.getElementById("rebase-cancel").onclick = () =>
   dom.rebaseModal.classList.add("hidden");
 
+dom.commitSearch.oninput = () => {
+  if (state) renderHistory();
+};
+
+document.getElementById("stash-push").onclick = () => {
+  const input = document.getElementById("stash-message");
+  const message = input.value.trim();
+  input.value = "";
+  run("stashPush", message ? { message } : {});
+};
+
 document.getElementById("add-worktree").onclick = () => {
   const input = document.getElementById("new-worktree");
   const branch = input.value.trim();
@@ -1225,4 +1356,5 @@ document.getElementById("undo-commit").onclick = async () => {
 };
 
 initPreferences();
+setupCollapsibleSections();
 refresh();

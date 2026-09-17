@@ -743,6 +743,7 @@ section {
 }
 
 .commit-row {
+  cursor: pointer;
   height: 36px;
   display: flex;
   align-items: center;
@@ -1069,4 +1070,29 @@ section {
     max-height: none;
     overflow-y: visible;
   }
+}
+
+/* --- commit search and collapsible sections --- */
+
+.commit-search {
+  margin-bottom: 8px;
+}
+
+h2.collapsible {
+  cursor: pointer;
+  user-select: none;
+}
+
+h2.collapsible::before {
+  content: "▾ ";
+  color: var(--text-faint);
+}
+
+section.collapsed h2.collapsible::before {
+  content: "▸ ";
+}
+
+/* Hide everything in a collapsed section except its heading. */
+section.collapsed > *:not(h2) {
+  display: none;
 }

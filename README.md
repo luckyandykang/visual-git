@@ -31,6 +31,10 @@ with ctrl-c.
 see its diff and stage one hunk at a time. Commit, amend, or undo the last
 commit while keeping its changes staged.
 
+**Stash.** Set the working tree aside without committing and bring it back
+later. Untracked files go in too, so stashing does not appear to leave half
+your work behind.
+
 **Undo and recovery.** The reflog is shown as a plain list of every state the
 repository has been in, including ones no branch points at any more, with a
 one-click restore. This is how you recover from a bad reset or rebase.
@@ -41,7 +45,10 @@ new commit messages are fed to git through `GIT_SEQUENCE_EDITOR` and
 `GIT_EDITOR`, so nothing opens an editor.
 
 **Branches and merges.** The commit graph is drawn from the parent links, one
-column per line of development, so merges and divergence are visible. Branches
+column per line of development, so merges and divergence are visible. Click a
+commit to see what it changed. The search box filters by message, author or
+hash — while filtering the graph is hidden rather than drawn wrong, since lane
+assignment only means anything over a full parent chain. Branches
 list their ahead/behind counts against their upstream. Merge conflicts surface
 the conflicted files and an abort button.
 
@@ -70,7 +77,9 @@ error instead of hanging.
 Folders start closed, so a repo opens showing its shape rather than every file
 in it, and the filter box searches the whole tree. Files sort by extension
 first, so files of a kind sit together. Brackets and quotes close themselves.
-Save
+Files can be
+created, renamed and deleted: tracked ones go through `git mv` and `git rm` so
+the change is staged, untracked ones are moved or removed directly. Save
 with the button or ctrl-S; the file then shows up under Changes, ready to
 stage and commit without leaving the page. Existing line endings are kept, so
 saving a CRLF file doesn't turn every line into a diff.
@@ -89,8 +98,7 @@ command log has a clear button.
 ## What it does not do
 
 - Hunk-level staging, not line-level.
-- The editor opens UTF-8 text files under 2 MB. No binaries, no creating or
-  deleting files, no rename.
+- The editor opens UTF-8 text files under 2 MB. No binaries.
 - The rebase editor covers the run of ordinary commits below `HEAD`, up to
   eight of them. It stops at the first merge commit, because a plain
   interactive rebase cannot replay one.

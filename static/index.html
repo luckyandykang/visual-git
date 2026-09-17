@@ -82,6 +82,18 @@
         </section>
 
         <section>
+          <h2 data-i18n="stash.title">Stash</h2>
+          <p class="hint" data-i18n="stash.hint">
+            Set the working tree aside without committing, then bring it back later.
+          </p>
+          <div id="stashes" class="list"></div>
+          <div class="inline-form">
+            <input id="stash-message" type="text" data-i18n-placeholder="stash.placeholder" />
+            <button id="stash-push" data-i18n="stash.push">stash</button>
+          </div>
+        </section>
+
+        <section>
           <h2 data-i18n="worktree.title">Worktrees</h2>
           <p class="hint" data-i18n="worktree.hint">
             A worktree checks out another branch into its own folder, so you can have two
@@ -119,6 +131,7 @@
           <p class="hint" data-i18n="history.hint">
             Each dot is a commit; each column is a line of development. Merges join two columns.
           </p>
+          <input id="commit-search" type="text" class="commit-search" data-i18n-placeholder="history.search" />
           <div class="graph-scroll">
             <div class="graph-inner">
               <svg id="graph" class="graph" xmlns="http://www.w3.org/2000/svg"></svg>

@@ -36,6 +36,20 @@ export const TRANSLATIONS = {
     "branches.empty": "no branches yet",
     "branches.gone": "upstream gone",
 
+    "stash.title": "Stash",
+    "stash.hint": "Set the working tree aside without committing, then bring it back later.",
+    "stash.push": "stash",
+    "stash.placeholder": "optional label",
+    "stash.empty": "nothing stashed",
+    "stash.apply": "apply",
+    "stash.drop": "drop",
+    "confirm.stashDrop.title": "Drop this stash?",
+    "confirm.stashDrop.text":
+      "The stashed changes are deleted without ever having been committed, so git has no other copy of them.",
+    "history.search": "search commits",
+    "history.searchEmpty": "no commits match",
+    "history.filtered": "{n} of {total} commits — the graph is hidden while filtering",
+
     "worktree.title": "Worktrees",
     "worktree.hint":
       "A worktree checks out another branch into its own folder, so you can have two branches open at once without stashing.",
@@ -63,6 +77,7 @@ export const TRANSLATIONS = {
     "history.hint": "Each dot is a commit; each column is a line of development. Merges join two columns.",
     "history.empty": "no commits yet",
     "history.noMessage": "(no message)",
+    "history.showCommit": "Show what this commit changed",
 
     "editor.hint": "Edit a file, save it, and it appears under Changes on the right — ready to stage and commit.",
     "editor.filter": "filter files",
@@ -191,6 +206,20 @@ export const TRANSLATIONS = {
     "branches.empty": "브랜치 없음",
     "branches.gone": "업스트림 사라짐",
 
+    "stash.title": "스태시",
+    "stash.hint": "커밋하지 않고 작업 내용을 잠시 치워 뒀다가 나중에 되돌립니다.",
+    "stash.push": "stash",
+    "stash.placeholder": "설명 (선택)",
+    "stash.empty": "치워둔 작업 없음",
+    "stash.apply": "적용",
+    "stash.drop": "삭제",
+    "confirm.stashDrop.title": "이 스태시를 삭제할까요?",
+    "confirm.stashDrop.text":
+      "커밋된 적 없는 변경이 그대로 사라집니다. git에 다른 사본이 없습니다.",
+    "history.search": "커밋 검색",
+    "history.searchEmpty": "일치하는 커밋 없음",
+    "history.filtered": "{total}개 중 {n}개 — 검색 중에는 그래프를 숨깁니다",
+
     "worktree.title": "워크트리",
     "worktree.hint":
       "워크트리는 다른 브랜치를 별도 폴더에 펼쳐 둡니다. stash 없이 두 브랜치를 동시에 열어둘 수 있습니다.",
@@ -218,6 +247,7 @@ export const TRANSLATIONS = {
     "history.hint": "점 하나가 커밋, 세로 줄 하나가 개발 갈래입니다. 병합은 두 줄을 합칩니다.",
     "history.empty": "커밋 없음",
     "history.noMessage": "(메시지 없음)",
+    "history.showCommit": "이 커밋이 바꾼 내용 보기",
 
     "editor.hint":
       "파일을 고치고 저장하면 오른쪽 변경사항에 나타납니다. 바로 스테이지하고 커밋할 수 있습니다.",
@@ -348,6 +378,20 @@ export const TRANSLATIONS = {
     "branches.empty": "ブランチなし",
     "branches.gone": "上流が消えています",
 
+    "stash.title": "スタッシュ",
+    "stash.hint": "コミットせずに作業内容を一時的に退避し、後で戻します。",
+    "stash.push": "stash",
+    "stash.placeholder": "説明 (任意)",
+    "stash.empty": "退避した作業なし",
+    "stash.apply": "適用",
+    "stash.drop": "削除",
+    "confirm.stashDrop.title": "このスタッシュを削除しますか?",
+    "confirm.stashDrop.text":
+      "一度もコミットされていない変更がそのまま消えます。git に他の控えはありません。",
+    "history.search": "コミット検索",
+    "history.searchEmpty": "該当するコミットなし",
+    "history.filtered": "{total} 件中 {n} 件 — 検索中はグラフを隠します",
+
     "worktree.title": "ワークツリー",
     "worktree.hint":
       "ワークツリーは別のブランチを専用フォルダに展開します。stash せずに二つのブランチを同時に開いておけます。",
@@ -375,6 +419,7 @@ export const TRANSLATIONS = {
     "history.hint": "点がコミット、縦の列が開発の流れです。マージは二つの列をつなぎます。",
     "history.empty": "コミットなし",
     "history.noMessage": "(メッセージなし)",
+    "history.showCommit": "このコミットの変更を表示",
 
     "editor.hint":
       "ファイルを編集して保存すると右の変更に現れます。そのままステージしてコミットできます。",

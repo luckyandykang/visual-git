@@ -256,6 +256,31 @@ def resolve_worktree(repo, payload):
     raise BadRequest("that path is not a worktree of this repository")
 
 
+SAFE_STASH = re.compile(r"^stash@\{\d{1,4}\}$")
+
+
+def require_stash(payload):
+    value = payload.get("ref")
+    if not isinstance(value, str) or not SAFE_STASH.match(value):
+        raise BadRequest("'ref' must look like stash@{0}")
+    return value
+
+
+def read_stashes(repo):
+    fmt = UNIT_SEP.join(["%gd", "%gs", "%ar"]) + RECORD_SEP
+    result = run_git(repo, ["stash", "list", f"--pretty=format:{fmt}"])
+    if result["code"] != 0:
+        return []
+    entries = []
+    for record in result["stdout"].split(RECORD_SEP):
+        record = record.strip("\n")
+        if not record:
+            continue
+        ref, subject, when = record.split(UNIT_SEP)
+        entries.append({"ref": ref, "subject": subject, "when": when})
+    return entries
+
+
 def read_branches(repo):
     fmt = UNIT_SEP.join(
         ["%(refname:short)", "%(objectname)", "%(upstream:short)", "%(upstream:track)", "%(HEAD)"]
@@ -556,6 +581,26 @@ def action_push(repo, payload):
     return [run_git(repo, args, timeout=NETWORK_TIMEOUT)]
 
 
+def action_stash_push(repo, payload):
+    """Set the working tree aside. --include-untracked so new files come too,
+    rather than being left behind looking like the stash did nothing."""
+    args = ["stash", "push", "--include-untracked"]
+    message = payload.get("message")
+    if isinstance(message, str) and message.strip():
+        args += ["--message", message.strip()[:500]]
+    return [run_git(repo, args)]
+
+
+def action_stash_apply(repo, payload):
+    """pop applies the stash and drops it; a conflict leaves it in the list."""
+    return [run_git(repo, ["stash", "pop", require_stash(payload)])]
+
+
+def action_stash_drop(repo, payload):
+    require_confirmed(payload)
+    return [run_git(repo, ["stash", "drop", require_stash(payload)])]
+
+
 def action_add_worktree(repo, payload):
     """Create a worktree as a sibling of the main one, named after the branch.
 
@@ -697,6 +742,9 @@ ACTIONS = {
     "fetch": action_fetch,
     "pull": action_pull,
     "push": action_push,
+    "stashPush": action_stash_push,
+    "stashApply": action_stash_apply,
+    "stashDrop": action_stash_drop,
     "addWorktree": action_add_worktree,
     "removeWorktree": action_remove_worktree,
     "switchWorktree": action_switch_worktree,
@@ -747,6 +795,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         "branches": read_branches(self.repo),
                         "reflog": read_reflog(self.repo, 50),
                         "worktrees": read_worktrees(self.repo),
+                        "stashes": read_stashes(self.repo),
                         "repo": str(self.repo),
                     }
                 )
@@ -757,6 +806,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.repo, {"path": query.get("path", [""])[0]}, "path"
                 )
                 return self.send_json({"path": path, "content": read_file(self.repo, path)})
+            if route == "/api/commit":
+                commit = require_hash({"hash": query.get("hash", [""])[0]}, "hash")
+                result = run_git(
+                    self.repo, ["show", "--patch", "--stat", "--format=fuller", commit]
+                )
+                if result["code"] != 0:
+                    raise BadRequest(result["stderr"].strip() or "git show failed")
+                return self.send_json({"text": result["stdout"], "command": result["command"]})
             if route == "/api/diff":
                 path = require_path(self.repo, {"path": query.get("path", [""])[0]}, "path")
                 staged = query.get("staged", ["0"])[0] == "1"
