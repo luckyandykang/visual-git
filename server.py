@@ -53,7 +53,12 @@ def run_git(repo, args, stdin_text=None, extra_env=None, timeout=None):
             env=env,
             input=stdin_text,
             capture_output=True,
-            text=True,
+            # git writes UTF-8. Without naming it, Python decodes using the
+            # system locale instead - cp949 on a Korean Windows install - and
+            # one Hangul byte in a commit message or filename kills the reader
+            # thread, which then hands back None instead of output.
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
