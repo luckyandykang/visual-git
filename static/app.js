@@ -286,6 +286,20 @@ function renderInProgressState() {
   }
 }
 
+// git reports tracking as "[ahead 3, behind 1]" in English regardless of the
+// UI language, so pull the numbers out and say it in the chosen one.
+function trackLabel(track) {
+  if (!track) return "";
+  if (track.includes("gone")) return t("branches.gone");
+
+  const parts = [];
+  const ahead = track.match(/ahead (\d+)/);
+  const behind = track.match(/behind (\d+)/);
+  if (ahead) parts.push(t("header.ahead", { n: ahead[1] }));
+  if (behind) parts.push(t("header.behind", { n: behind[1] }));
+  return parts.join(", ") || track.replace(/[[\]]/g, "");
+}
+
 function renderBranches() {
   const local = state.branches.filter((branch) => !branch.name.includes("/"));
   const remote = state.branches.filter((branch) => branch.name.includes("/"));
@@ -294,7 +308,7 @@ function renderBranches() {
   for (const branch of [...local, ...remote]) {
     const row = el("div", { class: branch.current ? "row-item current" : "row-item" }, [
       el("span", { class: "name", text: branch.name }),
-      branch.track ? el("span", { class: "meta", text: branch.track.replace(/[[\]]/g, "") }) : null,
+      branch.track ? el("span", { class: "meta", text: trackLabel(branch.track) }) : null,
     ]);
 
     if (!branch.current) {
