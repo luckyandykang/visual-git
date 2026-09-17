@@ -102,3 +102,10 @@ subcommand, pass a flag, or reach a path outside the repository.
 
 Treat it as a local development tool. It is not built to be exposed to a
 network.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+CodeMirror, under `static/vendor/codemirror/`, is also MIT and keeps its own
+copyright; its licence sits beside it.
