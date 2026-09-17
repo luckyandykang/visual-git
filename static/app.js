@@ -581,6 +581,9 @@ function ensureEditor() {
     indentUnit: 4,
     tabSize: 4,
     lineWrapping: false,
+    // Typing "{" gives you "{}", and pressing enter between them opens the
+    // block out onto its own indented line.
+    autoCloseBrackets: true,
   });
   editor.on("change", () => {
     if (editorPath) setDirty(true);
