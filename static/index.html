@@ -4,7 +4,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>visual-git</title>
+    <link rel="stylesheet" href="/vendor/codemirror/codemirror.css" />
     <link rel="stylesheet" href="/style.css" />
+    <script src="/vendor/codemirror/codemirror.js"></script>
+    <script src="/vendor/codemirror/mode/clike.js"></script>
+    <script src="/vendor/codemirror/mode/python.js"></script>
+    <script src="/vendor/codemirror/mode/javascript.js"></script>
+    <script src="/vendor/codemirror/mode/xml.js"></script>
+    <script src="/vendor/codemirror/mode/css.js"></script>
+    <script src="/vendor/codemirror/mode/htmlmixed.js"></script>
+    <script src="/vendor/codemirror/mode/markdown.js"></script>
+    <script src="/vendor/codemirror/mode/rust.js"></script>
+    <script src="/vendor/codemirror/mode/go.js"></script>
+    <script src="/vendor/codemirror/mode/sql.js"></script>
+    <script src="/vendor/codemirror/mode/shell.js"></script>
+    <script src="/vendor/codemirror/mode/yaml.js"></script>
   </head>
   <body>
     <header class="topbar">
@@ -62,18 +76,44 @@
 
       <section class="panel panel-center">
         <div class="panel-head">
-          <h2>History</h2>
+          <div class="tabs">
+            <button id="tab-history" class="tab active">History</button>
+            <button id="tab-editor" class="tab">Editor</button>
+          </div>
           <button id="open-rebase" class="ghost" title="Reorder, squash, reword or drop recent commits">
             rewrite history…
           </button>
         </div>
-        <p class="hint">
-          Each dot is a commit; each column is a line of development. Merges join two columns.
-        </p>
-        <div class="graph-scroll">
-          <div class="graph-inner">
-            <svg id="graph" class="graph" xmlns="http://www.w3.org/2000/svg"></svg>
-            <div id="commit-rows" class="commit-rows"></div>
+
+        <div id="view-history" class="view">
+          <p class="hint">
+            Each dot is a commit; each column is a line of development. Merges join two columns.
+          </p>
+          <div class="graph-scroll">
+            <div class="graph-inner">
+              <svg id="graph" class="graph" xmlns="http://www.w3.org/2000/svg"></svg>
+              <div id="commit-rows" class="commit-rows"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="view-editor" class="view hidden">
+          <p class="hint">
+            Edit a file, save it, and it appears under Changes on the right — ready to stage and commit.
+          </p>
+          <div class="editor-layout">
+            <div class="file-tree">
+              <input id="tree-filter" type="text" placeholder="filter files" />
+              <div id="tree-list" class="list"></div>
+            </div>
+            <div class="editor-pane">
+              <div class="editor-head">
+                <span id="editor-path" class="editor-path">no file open</span>
+                <span id="editor-dirty" class="dirty hidden">unsaved</span>
+                <button id="editor-save" class="primary small" disabled>save</button>
+              </div>
+              <div id="editor-host" class="editor-host"></div>
+            </div>
           </div>
         </div>
       </section>

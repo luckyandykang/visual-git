@@ -26,10 +26,20 @@ const dom = {
   modalCommand: document.getElementById("modal-command"),
   rebaseModal: document.getElementById("rebase-modal"),
   rebaseList: document.getElementById("rebase-list"),
+  treeFilter: document.getElementById("tree-filter"),
+  treeList: document.getElementById("tree-list"),
+  editorPath: document.getElementById("editor-path"),
+  editorDirty: document.getElementById("editor-dirty"),
+  editorSave: document.getElementById("editor-save"),
+  editorHost: document.getElementById("editor-host"),
 };
 
 let state = null;
 let openDiff = null;
+let editor = null;
+let editorPath = null;
+let editorClean = true;
+let treeFiles = [];
 
 // --- server access ---------------------------------------------------------
 
@@ -513,6 +523,182 @@ async function showDiff(path, { staged, untracked }) {
   dom.diffPanel.classList.remove("hidden");
 }
 
+// --- file editor -----------------------------------------------------------
+
+const EDITOR_MODES = {
+  py: "python",
+  js: "javascript",
+  mjs: "javascript",
+  json: "application/json",
+  ts: "text/typescript",
+  c: "text/x-csrc",
+  h: "text/x-csrc",
+  cpp: "text/x-c++src",
+  cc: "text/x-c++src",
+  hpp: "text/x-c++src",
+  java: "text/x-java",
+  css: "css",
+  html: "htmlmixed",
+  htm: "htmlmixed",
+  xml: "xml",
+  md: "markdown",
+  rs: "rust",
+  go: "go",
+  sql: "sql",
+  sh: "shell",
+  bash: "shell",
+  yml: "yaml",
+  yaml: "yaml",
+};
+
+function modeForPath(path) {
+  const extension = path.split(".").pop().toLowerCase();
+  return EDITOR_MODES[extension] ?? null;
+}
+
+function setDirty(dirty) {
+  editorClean = !dirty;
+  dom.editorDirty.classList.toggle("hidden", !dirty);
+  dom.editorSave.disabled = !dirty || !editorPath;
+}
+
+function ensureEditor() {
+  if (editor) return editor;
+  editor = CodeMirror(dom.editorHost, {
+    value: "",
+    lineNumbers: true,
+    indentUnit: 4,
+    tabSize: 4,
+    lineWrapping: false,
+  });
+  editor.on("change", () => {
+    if (editorPath) setDirty(true);
+  });
+  return editor;
+}
+
+async function loadTree() {
+  try {
+    treeFiles = (await api("/api/tree")).files;
+  } catch (error) {
+    showAlert(error.message);
+    return;
+  }
+  renderTree();
+}
+
+function renderTree() {
+  const filter = dom.treeFilter.value.trim().toLowerCase();
+  const matches = treeFiles.filter((file) => file.toLowerCase().includes(filter));
+  const shown = matches.slice(0, 400);
+
+  dom.treeList.replaceChildren();
+  let lastDirectory = null;
+  for (const file of shown) {
+    const cut = file.lastIndexOf("/");
+    const directory = cut === -1 ? "" : file.slice(0, cut);
+    const name = cut === -1 ? file : file.slice(cut + 1);
+    if (directory !== lastDirectory) {
+      dom.treeList.append(el("div", { class: "tree-dir", text: directory || "/" }));
+      lastDirectory = directory;
+    }
+    dom.treeList.append(
+      el("div", {
+        class: file === editorPath ? "tree-file open" : "tree-file",
+        text: name,
+        title: file,
+        onclick: () => openFileInEditor(file),
+      })
+    );
+  }
+
+  if (!shown.length) {
+    dom.treeList.append(el("div", { class: "empty", text: "no files match" }));
+  } else if (matches.length > shown.length) {
+    dom.treeList.append(
+      el("div", {
+        class: "empty",
+        text: `${matches.length - shown.length} more — narrow the filter`,
+      })
+    );
+  }
+}
+
+async function openFileInEditor(path) {
+  if (!editorClean) {
+    const confirmed = await confirmAction({
+      title: "Discard unsaved edits?",
+      text: `${editorPath} has changes that were never written to disk. Git cannot recover these, because it has never seen them.`,
+      command: "(nothing is run — this only discards what is in the editor)",
+    });
+    if (!confirmed) return;
+  }
+
+  let data;
+  try {
+    data = await api(`/api/file?path=${encodeURIComponent(path)}`);
+  } catch (error) {
+    showAlert(error.message);
+    return;
+  }
+
+  const instance = ensureEditor();
+  editorPath = path;
+  instance.setOption("mode", modeForPath(path));
+  // Keep the file's existing line endings, or saving would rewrite every line.
+  instance.setOption("lineSeparator", data.content.includes("\r\n") ? "\r\n" : "\n");
+  instance.setValue(data.content);
+  instance.clearHistory();
+  dom.editorPath.textContent = path;
+  setDirty(false);
+  renderTree();
+  instance.refresh();
+  instance.focus();
+}
+
+// A checkout, pull or reset can rewrite the file under the editor. Re-reading
+// it keeps a later save from writing stale content back over the new state.
+// Unsaved edits are left alone: those only exist in the buffer.
+async function reloadOpenFile() {
+  if (!editorPath || !editor || !editorClean) return;
+  let data;
+  try {
+    data = await api(`/api/file?path=${encodeURIComponent(editorPath)}`);
+  } catch {
+    return; // the file can legitimately vanish, e.g. switching branches
+  }
+  if (data.content === editor.getValue()) return;
+
+  const cursor = editor.getCursor();
+  const scroll = editor.getScrollInfo();
+  editor.setValue(data.content);
+  editor.setCursor(cursor);
+  editor.scrollTo(scroll.left, scroll.top);
+  setDirty(false);
+}
+
+async function saveOpenFile() {
+  if (!editorPath || !editor || editorClean) return;
+  const results = await run("saveFile", { path: editorPath, content: editor.getValue() });
+  if (results && results.every((result) => result.code === 0)) setDirty(false);
+}
+
+function showTab(which) {
+  const editing = which === "editor";
+  document.getElementById("tab-history").classList.toggle("active", !editing);
+  document.getElementById("tab-editor").classList.toggle("active", editing);
+  document.getElementById("view-history").classList.toggle("hidden", editing);
+  document.getElementById("view-editor").classList.toggle("hidden", !editing);
+  document.getElementById("open-rebase").classList.toggle("hidden", editing);
+
+  if (editing) {
+    if (!treeFiles.length) loadTree();
+    // CodeMirror measures itself on creation; it needs a nudge after being
+    // shown, or it renders with the size it had while hidden.
+    if (editor) editor.refresh();
+  }
+}
+
 // --- rebase editor ---------------------------------------------------------
 
 // Collect the run of ordinary commits below HEAD. The walk stops at the first
@@ -659,6 +845,7 @@ async function refresh() {
   renderHistory();
   renderFiles();
   renderInProgressState();
+  reloadOpenFile();
 
   if (openDiff) {
     const stillListed = [
@@ -698,6 +885,18 @@ document.getElementById("refresh").onclick = refresh;
 document.getElementById("theme-toggle").onclick = () => {
   applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
 };
+document.getElementById("tab-history").onclick = () => showTab("history");
+document.getElementById("tab-editor").onclick = () => showTab("editor");
+dom.treeFilter.oninput = renderTree;
+dom.editorSave.onclick = saveOpenFile;
+
+document.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    saveOpenFile();
+  }
+});
+
 document.getElementById("fetch").onclick = () => run("fetch");
 document.getElementById("pull").onclick = () => run("pull");
 document.getElementById("push").onclick = () => pushChanges();

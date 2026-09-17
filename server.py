@@ -255,6 +255,45 @@ def read_diff(repo, path, staged, untracked):
     return run_git(repo, args)
 
 
+MAX_EDIT_BYTES = 2_000_000
+
+
+def require_editable_path(repo, payload, key):
+    """A path inside the repo that is not part of git's own storage.
+
+    Writing into .git would let the page change hooks or config, which is a
+    long way round to arbitrary code execution.
+    """
+    value = require_path(repo, payload, key)
+    root = Path(repo).resolve()
+    relative = (root / value).resolve().relative_to(root)
+    if relative.parts and relative.parts[0] == ".git":
+        raise BadRequest("the .git directory is not editable here")
+    return value
+
+
+def read_tree(repo):
+    """Every file git tracks, plus untracked ones it is not ignoring."""
+    raw = git_output(repo, ["ls-files", "--cached", "--others", "--exclude-standard"])
+    return sorted({line for line in raw.splitlines() if line.strip()})
+
+
+def read_file(repo, path):
+    target = Path(repo) / path
+    if not target.is_file():
+        raise BadRequest("no such file")
+    size = target.stat().st_size
+    if size > MAX_EDIT_BYTES:
+        raise BadRequest(f"{size} bytes is too large to open here")
+    data = target.read_bytes()
+    if b"\x00" in data:
+        raise BadRequest("this looks like a binary file")
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise BadRequest("not UTF-8 text, so editing it here could corrupt it")
+
+
 def split_hunks(diff_text):
     """Split a unified diff for a single file into its header and hunks."""
     lines = diff_text.splitlines(keepends=True)
@@ -324,6 +363,22 @@ def action_stage_hunk(repo, payload):
         patch += "\n"
     args = ["apply", "--cached"] + (["--reverse"] if reverse else []) + ["-"]
     return [run_git(repo, args, stdin_text=patch)]
+
+
+def action_save_file(repo, payload):
+    path = require_editable_path(repo, payload, "path")
+    content = payload.get("content")
+    if not isinstance(content, str):
+        raise BadRequest("'content' must be a string")
+    if len(content.encode("utf-8")) > MAX_EDIT_BYTES:
+        raise BadRequest("that is too large to save")
+
+    # newline="" writes exactly what the editor sent, so a CRLF file is not
+    # silently rewritten to LF and turned into a whole-file diff.
+    target = Path(repo) / path
+    with open(target, "w", encoding="utf-8", newline="") as handle:
+        handle.write(content)
+    return [{"command": f"(editor) wrote {path}", "stdout": "", "stderr": "", "code": 0}]
 
 
 def action_commit(repo, payload):
@@ -477,6 +532,7 @@ ACTIONS = {
     "unstageAll": action_unstage_all,
     "discard": action_discard,
     "stageHunk": action_stage_hunk,
+    "saveFile": action_save_file,
     "commit": action_commit,
     "undoCommit": action_undo_commit,
     "restoreState": action_restore_state,
@@ -538,6 +594,13 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         "repo": str(self.repo),
                     }
                 )
+            if route == "/api/tree":
+                return self.send_json({"files": read_tree(self.repo)})
+            if route == "/api/file":
+                path = require_editable_path(
+                    self.repo, {"path": query.get("path", [""])[0]}, "path"
+                )
+                return self.send_json({"path": path, "content": read_file(self.repo, path)})
             if route == "/api/diff":
                 path = require_path(self.repo, {"path": query.get("path", [""])[0]}, "path")
                 staged = query.get("staged", ["0"])[0] == "1"

@@ -11,14 +11,19 @@ different model of how git works.
 
 ## Running it
 
-No dependencies beyond Python 3.8+ and git.
+Nothing to install: Python 3.8+ and git. CodeMirror is vendored under
+`static/vendor/` (MIT licensed), so nothing is fetched at runtime and the app
+works offline.
 
 ```sh
-python3 server.py /path/to/repo
+python3 server.py /path/to/repo     # macOS / Linux
+py server.py C:\path\to\repo        # Windows
 ```
 
-It prints a URL containing a one-time token and opens your browser. `--port`
-changes the port, `--no-browser` skips opening it. Stop it with ctrl-c.
+The repository is just that argument, so point it at any repo you like — pass
+any folder inside one and it finds the root. One repo per server; use `--port`
+to run a second alongside it. `--no-browser` skips opening a window. Stop it
+with ctrl-c.
 
 ## What it does
 
@@ -52,9 +57,22 @@ for a password: your credentials need to already work without prompting (an
 SSH key, or a credential helper). Otherwise the command fails with a visible
 error instead of hanging.
 
+**Editing.** An Editor tab with a filterable list of every file git tracks
+(plus untracked ones it isn't ignoring) and a CodeMirror pane beside it. Save
+with the button or ctrl-S; the file then shows up under Changes, ready to
+stage and commit without leaving the page. Existing line endings are kept, so
+saving a CRLF file doesn't turn every line into a diff.
+
+![the editor tab: file list, a C++ file open with highlighting, and the saved file appearing under Changes](docs/editor.png)
+
+The `.git` directory is not readable or writable through the editor — editing
+hooks or config from a web page is a long way round to running arbitrary code.
+
 ## What it does not do
 
 - Hunk-level staging, not line-level.
+- The editor opens UTF-8 text files under 2 MB. No binaries, no creating or
+  deleting files, no rename.
 - The rebase editor covers the run of ordinary commits below `HEAD`, up to
   eight of them. It stops at the first merge commit, because a plain
   interactive rebase cannot replay one.
