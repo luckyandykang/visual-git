@@ -362,6 +362,10 @@ def read_branches(repo):
         if not line.strip():
             continue
         name, objectname, upstream, track, head = line.split(UNIT_SEP)
+        # A symbolic ref like "origin/HEAD" points at another remote branch,
+        # not a branch of its own; listing it is just a confusing duplicate.
+        if name.endswith("/HEAD"):
+            continue
         branches.append(
             {
                 "name": name,
@@ -576,9 +580,15 @@ def action_rename_file(repo, payload):
 
 
 def action_commit(repo, payload):
+    amend = payload.get("amend") is True
+    message = payload.get("message")
+    # Amending without a new message keeps the one the commit already has,
+    # same as `git commit --amend --no-edit`.
+    if amend and not (isinstance(message, str) and message.strip()):
+        return [run_git(repo, ["commit", "--amend", "--no-edit"])]
     message = require_text(payload, "message")
     args = ["commit", "--message", message]
-    if payload.get("amend") is True:
+    if amend:
         args.append("--amend")
     return [run_git(repo, args)]
 

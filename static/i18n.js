@@ -143,7 +143,6 @@ export const TRANSLATIONS = {
     "action.forcePush": "force push (--force-with-lease)",
 
     "alert.needMessage": "Write a commit message first.",
-    "alert.needAmendMessage": "Write the replacement message in the commit box first.",
     "alert.nothingToRewrite":
       "Nothing to rewrite here: this needs at least one ordinary commit sitting on top of an earlier one.",
     "alert.oldestSquash": "The oldest commit has nothing above it to fold into.",
@@ -315,7 +314,6 @@ export const TRANSLATIONS = {
     "action.forcePush": "강제 push (--force-with-lease)",
 
     "alert.needMessage": "커밋 메시지를 먼저 입력하세요.",
-    "alert.needAmendMessage": "교체할 메시지를 커밋 칸에 먼저 입력하세요.",
     "alert.nothingToRewrite":
       "수정할 커밋이 없습니다. 이전 커밋 위에 놓인 일반 커밋이 최소 하나 필요합니다.",
     "alert.oldestSquash": "가장 오래된 커밋은 합쳐 넣을 대상이 위에 없습니다.",
@@ -487,7 +485,6 @@ export const TRANSLATIONS = {
     "action.forcePush": "強制 push (--force-with-lease)",
 
     "alert.needMessage": "先にコミットメッセージを入力してください。",
-    "alert.needAmendMessage": "置き換えるメッセージを先にコミット欄に入力してください。",
     "alert.nothingToRewrite":
       "書き換えるコミットがありません。以前のコミットの上に乗った通常のコミットが最低一つ必要です。",
     "alert.oldestSquash": "最も古いコミットにはまとめる先が上にありません。",

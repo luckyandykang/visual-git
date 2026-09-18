@@ -1335,15 +1335,11 @@ document.getElementById("amend").onclick = async () => {
   const confirmed = await confirmAction({
     title: t("confirm.amend.title"),
     text: t("confirm.amend.text"),
-    command: "git commit --amend",
+    command: message ? "git commit --amend" : "git commit --amend --no-edit",
   });
   if (!confirmed) return;
-  if (!message) {
-    showAlert(t("alert.needAmendMessage"));
-    return;
-  }
   dom.commitMessage.value = "";
-  run("commit", { message, amend: true });
+  run("commit", message ? { message, amend: true } : { amend: true });
 };
 
 document.getElementById("undo-commit").onclick = async () => {
