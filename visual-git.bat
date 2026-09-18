@@ -1,5 +1,6 @@
 @echo off
 rem Double-click this to update visual-git and open a repository.
+chcp 65001 >nul
 cd /d "%~dp0"
 
 where py >nul 2>nul

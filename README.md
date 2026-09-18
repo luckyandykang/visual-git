@@ -1,5 +1,7 @@
 # visual-git
 
+<img src="docs/logo.png" width="96" align="right" alt="" />
+
 A local web GUI for git. Every button runs a plain git command and shows you
 which one, so you can see what you are actually doing instead of memorising it.
 
@@ -51,7 +53,7 @@ To build it into a single `.exe` instead, on the machine that will run it:
 
 ```sh
 pip install pyinstaller
-pyinstaller --onefile --name visual-git --add-data "static;static" --hidden-import server launcher.py
+pyinstaller --onefile --name visual-git --icon visual-git.ico --add-data "static;static" --hidden-import server launcher.py
 ```
 
 Put the resulting `dist/visual-git.exe` **in the visual-git folder** — it runs

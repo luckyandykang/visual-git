@@ -9,9 +9,17 @@ than the temporary directory the bundle unpacks into.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+# A Korean Windows console defaults to cp949, which cannot encode the box
+# drawing characters in the banner.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 if getattr(sys, "frozen", False):
     HERE = Path(sys.executable).resolve().parent
@@ -23,6 +31,52 @@ RECENT_FILE = Path.home() / ".visual-git-recent.json"
 MAX_RECENT = 8
 
 
+def supports_colour():
+    """Windows terminals need virtual terminal processing switched on before
+    they treat ANSI escapes as anything but literal text."""
+    if not sys.stdout.isatty():
+        return False
+    if os.name != "nt":
+        return True
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.GetStdHandle(-11)
+        mode = ctypes.c_uint32()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False
+        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+        return bool(kernel32.SetConsoleMode(handle, mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
+    except Exception:
+        return False
+
+
+COLOUR = supports_colour()
+BLUE = "\033[38;5;75m" if COLOUR else ""
+ORANGE = "\033[38;5;215m" if COLOUR else ""
+DIM = "\033[38;5;245m" if COLOUR else ""
+BOLD = "\033[1m" if COLOUR else ""
+OFF = "\033[0m" if COLOUR else ""
+
+
+def banner():
+    """The same mark as the icon: a lane, and a branch that leaves it and
+    merges back. Falls back to ASCII on a console that cannot encode the box
+    drawing characters."""
+    art = [("●", "─╮"), ("│", " │"), ("●", " ●"), ("│", " │"), ("●", "─╯")]
+    labels = ["", f"{BOLD}visual-git{OFF}", f"{DIM}a local web GUI for git{OFF}", "", ""]
+    try:
+        "".join(lane + branch for lane, branch in art).encode(sys.stdout.encoding or "utf-8")
+    except (UnicodeEncodeError, LookupError):
+        art = [("o", "-+"), ("|", " |"), ("o", " o"), ("|", " |"), ("o", "-+")]
+
+    print()
+    for (lane, branch), label in zip(art, labels):
+        print(f"   {BLUE}{lane}{ORANGE}{branch}{OFF}   {label}".rstrip())
+    print()
+
+
 def run(args, cwd):
     return subprocess.run(
         args, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace"
@@ -30,16 +84,16 @@ def run(args, cwd):
 
 
 def update_self():
-    print("Checking for updates...")
+    print(f"{DIM}Checking for updates...{OFF}")
     result = run(["git", "pull"], HERE)
     if result.returncode != 0:
         reason = (result.stderr or result.stdout).strip().splitlines()
-        print(f"  Could not update: {reason[0] if reason else 'git pull failed'}")
-        print("  Carrying on with the version you have.")
+        print(f"  {ORANGE}Could not update:{OFF} {reason[0] if reason else 'git pull failed'}")
+        print(f"  {DIM}Carrying on with the version you have.{OFF}")
     elif "Already up to date" in result.stdout:
-        print("  Up to date.")
+        print(f"  {BLUE}Up to date.{OFF}")
     else:
-        print("  Updated.")
+        print(f"  {BLUE}Updated.{OFF}")
 
 
 def load_recent():
@@ -64,16 +118,16 @@ def repository_root(path):
 
 def choose_repository(recent):
     if recent:
-        print("\nRecent repositories:")
+        print(f"\n{BOLD}Recent repositories{OFF}")
         for index, path in enumerate(recent, 1):
-            print(f"  {index}. {path}")
-        print("\nEnter a number, or a path (blank for 1):")
+            print(f"  {BLUE}{index}{OFF}  {path}")
+        print(f"\n{DIM}Enter a number, or a path (blank for 1){OFF}")
     else:
-        print("\nEnter the path to a git repository:")
+        print(f"\n{DIM}Enter the path to a git repository{OFF}")
 
     while True:
         try:
-            answer = input("> ").strip().strip('"')
+            answer = input(f"{BLUE}>{OFF} ").strip().strip('"')
         except (EOFError, KeyboardInterrupt):
             return None
 
@@ -86,23 +140,23 @@ def choose_repository(recent):
             index = int(answer) - 1
             if 0 <= index < len(recent):
                 return recent[index]
-            print("  There is no entry with that number.")
+            print(f"  {ORANGE}There is no entry with that number.{OFF}")
             continue
 
         candidate = Path(answer).expanduser()
         if not candidate.is_dir():
-            print("  That folder does not exist.")
+            print(f"  {ORANGE}That folder does not exist.{OFF}")
             continue
 
         root = repository_root(candidate)
         if root is None:
-            print("  That folder is not inside a git repository.")
+            print(f"  {ORANGE}That folder is not inside a git repository.{OFF}")
             continue
         return root
 
 
 def main():
-    print("visual-git")
+    banner()
     update_self()
 
     recent = load_recent()
@@ -113,7 +167,7 @@ def main():
 
     save_recent([chosen] + [path for path in recent if path != chosen])
 
-    print(f"\nOpening {chosen}")
+    print(f"\n{BOLD}Opening{OFF} {chosen}")
     # Import and call rather than spawning a new interpreter: when this is
     # frozen, sys.executable is this launcher, not python.
     sys.path.insert(0, str(HERE))

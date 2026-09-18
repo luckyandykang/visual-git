@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="visual-git">
+  <rect width="512" height="512" rx="112" fill="#161a21" />
+  <g fill="none" stroke-linecap="round" stroke-width="23">
+    <path d="M190 116 C 190 225, 330 147, 330 256" stroke="#f2994a" />
+    <path d="M330 256 C 330 365, 190 287, 190 396" stroke="#f2994a" />
+    <path d="M190 116 L 190 396" stroke="#4f9dfd" />
+  </g>
+  <g fill="#4f9dfd">
+    <circle cx="190" cy="116" r="31" />
+    <circle cx="190" cy="256" r="31" />
+    <circle cx="190" cy="396" r="31" />
+  </g>
+  <circle cx="330" cy="256" r="31" fill="#f2994a" />
+</svg>
