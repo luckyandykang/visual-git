@@ -146,8 +146,10 @@ rebasing) require confirmation and tell you whether the reflog can get the
 state back.
 
 The server binds to `127.0.0.1` only, and every API call requires both a token
-generated at startup and a custom header, so a web page you happen to have open
-elsewhere cannot drive it. Git arguments are built server-side from a fixed set
+and a custom header, so a web page you happen to have open elsewhere cannot
+drive it. The token is kept in `~/.visual-git-token`, readable only by you, and
+reused across runs so a window opened earlier keeps working; an address without
+it gets a page saying so rather than the app. Git arguments are built server-side from a fixed set
 of actions and passed as an argument list — the browser cannot name a git
 subcommand, pass a flag, or reach a path outside the repository.
 

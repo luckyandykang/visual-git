@@ -24,7 +24,39 @@ import webbrowser
 from pathlib import Path
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-TOKEN = secrets.token_urlsafe(24)
+# Kept outside the repository so it never shows up as an untracked file.
+TOKEN_FILE = Path.home() / ".visual-git-token"
+TOKEN_SHAPE = re.compile(r"^[A-Za-z0-9_-]{20,128}$")
+
+
+def load_token():
+    """The same token every run, so a window an earlier run opened still works.
+
+    A token generated per process meant that reopening the launcher, or Chrome
+    restoring its app window, left a page whose token no longer matched: the
+    UI loaded and every call answered "unauthorized". The token only has to
+    keep other pages and other users out, and anyone able to read this file
+    could already read the process that would otherwise hold the token in
+    memory, so storing it owner-only costs nothing.
+    """
+    try:
+        existing = TOKEN_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        existing = ""
+    if TOKEN_SHAPE.match(existing):
+        return existing
+
+    token = secrets.token_urlsafe(24)
+    try:
+        handle = os.open(TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with open(handle, "w", encoding="utf-8") as file:
+            file.write(token)
+    except OSError:
+        pass  # a token that lives only in memory still works for this run
+    return token
+
+
+TOKEN = load_token()
 
 # A ref that starts with "-" would be read by git as an option, so reject those.
 SAFE_REF = re.compile(r"^(?!-)[A-Za-z0-9._/+-]{1,255}$")
@@ -32,6 +64,44 @@ SAFE_HASH = re.compile(r"^[0-9a-f]{4,40}$")
 
 UNIT_SEP = "\x1f"
 RECORD_SEP = "\x1e"
+
+# Shown instead of the app when the address carries no usable token, which is
+# what an address from a previous install looks like. Standalone on purpose:
+# it has to render before any of the app's own files are served.
+STALE_PAGE = """<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>visual-git</title>
+    <style>
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center;
+             background: #0f1216; color: #e4e8ef;
+             font: 15px/1.6 "Segoe UI", system-ui, sans-serif; }
+      main { max-width: 32rem; padding: 2rem; }
+      h1 { font-size: 1.3rem; margin: 0 0 .75rem; }
+      p { margin: 0 0 .75rem; color: #9aa4b4; }
+      p.other { color: #6b7686; font-size: .92rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>This address is out of date</h1>
+      <p>
+        It was opened by an earlier run of visual-git. Open the app from the
+        launcher, or from the address the server printed when it started.
+      </p>
+      <p class="other">
+        \uc774 \uc8fc\uc18c\ub294 \uc774\uc804\uc5d0 \uc2e4\ud589\ud588\ub358 visual-git\uc758 \uac83\uc785\ub2c8\ub2e4.
+        \ub7f0\ucc98, \ub610\ub294 \uc11c\ubc84\uac00 \uc2dc\uc791\ud560 \ub54c \ucd9c\ub825\ud55c \uc8fc\uc18c\ub85c \uc5f4\uc5b4 \uc8fc\uc138\uc694.
+      </p>
+      <p class="other">
+        \u3053\u306e\u30a2\u30c9\u30ec\u30b9\u306f\u4ee5\u524d\u306e visual-git \u306e\u3082\u306e\u3067\u3059\u3002
+        \u30e9\u30f3\u30c1\u30e3\u30fc\u304b\u3001\u30b5\u30fc\u30d0\u30fc\u8d77\u52d5\u6642\u306b\u8868\u793a\u3055\u308c\u305f\u30a2\u30c9\u30ec\u30b9\u304b\u3089\u958b\u3044\u3066\u304f\u3060\u3055\u3044\u3002
+      </p>
+    </main>
+  </body>
+</html>
+"""
 
 
 class BadRequest(Exception):
@@ -770,7 +840,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
         host = self.headers.get("Host", "").split(":")[0]
         if host not in ("localhost", "127.0.0.1", "[::1]"):
             return False
-        return secrets.compare_digest(self.headers.get("X-VG-Token", ""), TOKEN)
+        return self.token_matches(self.headers.get("X-VG-Token", ""))
+
+    @staticmethod
+    def token_matches(candidate):
+        return secrets.compare_digest(candidate, TOKEN)
+
+    def send_stale_page(self):
+        """A page opened without this server's token, answered in words.
+
+        Serving the app here would load it and then fail every call with
+        "unauthorized", which says nothing about what to do.
+        """
+        body = STALE_PAGE.encode("utf-8")
+        self.send_response(403)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def send_json(self, payload, status=200):
         body = json.dumps(payload).encode("utf-8")
@@ -785,6 +872,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         route, query = parsed
 
         if not route.startswith("/api/"):
+            if route == "/" and not self.token_matches(query.get("token", [""])[0]):
+                return self.send_stale_page()
             return self.serve_static(route)
 
         if not self.authorized():
