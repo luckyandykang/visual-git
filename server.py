@@ -15,6 +15,7 @@ import os
 import re
 import secrets
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -903,6 +904,59 @@ def resolve_repo(candidate):
     return Path(result.stdout.strip())
 
 
+def find_app_browser():
+    """Chrome or Edge, either of which can open a URL as its own window.
+
+    Only these two support --app; Firefox and Safari have no equivalent, so
+    there they get an ordinary tab instead.
+    """
+    for name in ("chrome", "google-chrome", "chromium", "chromium-browser", "msedge"):
+        found = shutil.which(name)
+        if found:
+            return found
+
+    if os.name == "nt":
+        relative = [
+            r"Google\Chrome\Application\chrome.exe",
+            r"Microsoft\Edge\Application\msedge.exe",
+        ]
+        roots = [
+            os.environ.get("ProgramFiles"),
+            os.environ.get("ProgramFiles(x86)"),
+            os.environ.get("LOCALAPPDATA"),
+        ]
+        for root in filter(None, roots):
+            for tail in relative:
+                candidate = Path(root) / tail
+                if candidate.is_file():
+                    return str(candidate)
+    elif sys.platform == "darwin":
+        for candidate in (
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        ):
+            if Path(candidate).is_file():
+                return candidate
+    return None
+
+
+def open_ui(url):
+    """Show the UI in a window of its own rather than as a browser tab."""
+    browser = find_app_browser()
+    if browser:
+        try:
+            subprocess.Popen(
+                [browser, f"--app={url}", "--window-size=1440,900"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return True
+        except OSError:
+            pass
+    webbrowser.open(url)
+    return False
+
+
 def create_server(repo, port=7373, attempts=20):
     """Bind the server and hand back the server object and the URL to open.
 
@@ -937,7 +991,7 @@ def main():
     print(f"            open: {url}")
     print("            stop: ctrl-c")
     if not args.no_browser:
-        webbrowser.open(url)
+        open_ui(url)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

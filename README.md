@@ -23,9 +23,16 @@ py server.py C:\path\to\repo        # Windows
 ```
 
 The repository is just that argument, so point it at any repo you like — pass
-any folder inside one and it finds the root. One repo per server; use `--port`
-to run a second alongside it. `--no-browser` skips opening a window. Stop it
-with ctrl-c.
+any folder inside one and it finds the root. One repo per server; the port
+steps forward if the one asked for is busy. `--no-browser` skips opening a
+window. Stop it with ctrl-c.
+
+The UI opens in a window of its own rather than a browser tab: if Chrome or
+Edge is installed it is launched with `--app`, which drops the tab strip and
+address bar and gives the app its own taskbar entry. Nothing is installed to
+make that work — it is the browser you already have, asked for a different
+kind of window. With neither available it falls back to your default browser,
+where it is an ordinary tab.
 
 ### The launcher
 

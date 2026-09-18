@@ -15,7 +15,6 @@ import os
 import subprocess
 import sys
 import threading
-import webbrowser
 from pathlib import Path
 
 # pythonw.exe gives a process with no console, where stdout and stderr are
@@ -240,12 +239,17 @@ def run_gui(tkinter, filedialog):
         state["server"] = httpd
         state["url"] = url
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
-        webbrowser.open(url)
+        server.open_ui(url)
         show_running(root_path, url)
 
     open_button = button(outer, "Open", start, primary=True)
     open_button.pack(fill="x", pady=(16, 0), ipady=2)
     root.bind("<Return>", lambda _event: start())
+
+    def reopen(url):
+        import server
+
+        server.open_ui(url)
 
     def show_running(repo_path, url):
         """Replace the picker with the address, once a server is up."""
@@ -270,7 +274,7 @@ def run_gui(tkinter, filedialog):
 
         buttons = tkinter.Frame(outer, bg=BG)
         buttons.pack(fill="x", pady=(16, 0))
-        button(buttons, "Open in browser", lambda: webbrowser.open(url), primary=True).pack(
+        button(buttons, "Open window", lambda: reopen(url), primary=True).pack(
             side="left", fill="x", expand=True
         )
         button(buttons, "Quit", root.destroy).pack(side="left", padx=(8, 0))
