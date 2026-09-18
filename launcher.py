@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""visual-git launcher: update, pick a repository, start the server.
+"""visual-git launcher: update, pick a repository, run the server.
 
-Written so it behaves the same run from source or frozen into an executable:
-when frozen, the folder to update is the one holding the executable rather
-than the temporary directory the bundle unpacks into.
+Opens a small window when tkinter is available and falls back to a prompt in
+the terminal when it is not. Written to behave the same run from source or
+frozen into an executable: when frozen, the folder to update is the one
+holding the executable rather than the temporary directory the bundle unpacks
+into.
 """
 
 from __future__ import annotations
@@ -12,10 +14,10 @@ import json
 import os
 import subprocess
 import sys
+import threading
+import webbrowser
 from pathlib import Path
 
-# A Korean Windows console defaults to cp949, which cannot encode the box
-# drawing characters in the banner.
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
@@ -30,51 +32,18 @@ else:
 RECENT_FILE = Path.home() / ".visual-git-recent.json"
 MAX_RECENT = 8
 
-
-def supports_colour():
-    """Windows terminals need virtual terminal processing switched on before
-    they treat ANSI escapes as anything but literal text."""
-    if not sys.stdout.isatty():
-        return False
-    if os.name != "nt":
-        return True
-    try:
-        import ctypes
-
-        kernel32 = ctypes.windll.kernel32
-        handle = kernel32.GetStdHandle(-11)
-        mode = ctypes.c_uint32()
-        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
-            return False
-        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
-        return bool(kernel32.SetConsoleMode(handle, mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING))
-    except Exception:
-        return False
+BG = "#0f1216"
+SURFACE = "#161a21"
+SURFACE_2 = "#1d222b"
+BORDER = "#262c37"
+TEXT = "#e4e8ef"
+TEXT_DIM = "#9aa4b4"
+TEXT_FAINT = "#6b7686"
+ACCENT = "#4f9dfd"
+ORANGE = "#f2994a"
 
 
-COLOUR = supports_colour()
-BLUE = "\033[38;5;75m" if COLOUR else ""
-ORANGE = "\033[38;5;215m" if COLOUR else ""
-DIM = "\033[38;5;245m" if COLOUR else ""
-BOLD = "\033[1m" if COLOUR else ""
-OFF = "\033[0m" if COLOUR else ""
-
-
-def banner():
-    """The same mark as the icon: a lane, and a branch that leaves it and
-    merges back. Falls back to ASCII on a console that cannot encode the box
-    drawing characters."""
-    art = [("●", "─╮"), ("│", " │"), ("●", " ●"), ("│", " │"), ("●", "─╯")]
-    labels = ["", f"{BOLD}visual-git{OFF}", f"{DIM}a local web GUI for git{OFF}", "", ""]
-    try:
-        "".join(lane + branch for lane, branch in art).encode(sys.stdout.encoding or "utf-8")
-    except (UnicodeEncodeError, LookupError):
-        art = [("o", "-+"), ("|", " |"), ("o", " o"), ("|", " |"), ("o", "-+")]
-
-    print()
-    for (lane, branch), label in zip(art, labels):
-        print(f"   {BLUE}{lane}{ORANGE}{branch}{OFF}   {label}".rstrip())
-    print()
+# --- shared logic ----------------------------------------------------------
 
 
 def run(args, cwd):
@@ -84,16 +53,14 @@ def run(args, cwd):
 
 
 def update_self():
-    print(f"{DIM}Checking for updates...{OFF}")
+    """Returns a short line describing what happened, for either front end."""
     result = run(["git", "pull"], HERE)
     if result.returncode != 0:
         reason = (result.stderr or result.stdout).strip().splitlines()
-        print(f"  {ORANGE}Could not update:{OFF} {reason[0] if reason else 'git pull failed'}")
-        print(f"  {DIM}Carrying on with the version you have.{OFF}")
-    elif "Already up to date" in result.stdout:
-        print(f"  {BLUE}Up to date.{OFF}")
-    else:
-        print(f"  {BLUE}Updated.{OFF}")
+        return False, reason[0] if reason else "git pull failed"
+    if "Already up to date" in result.stdout:
+        return True, "Up to date."
+    return True, "Updated."
 
 
 def load_recent():
@@ -116,65 +83,275 @@ def repository_root(path):
     return result.stdout.strip() if result.returncode == 0 else None
 
 
-def choose_repository(recent):
+def remember(chosen):
+    save_recent([chosen] + [path for path in load_recent() if path != chosen])
+
+
+# --- window ----------------------------------------------------------------
+
+
+def run_gui(tkinter, filedialog):
+    root = tkinter.Tk()
+    root.title("visual-git")
+    root.configure(bg=BG)
+    root.minsize(520, 460)
+    try:
+        root.iconphoto(True, tkinter.PhotoImage(file=str(HERE / "docs" / "logo.png")))
+    except Exception:
+        pass  # an icon is not worth failing to start over
+
+    state = {"server": None, "url": None}
+
+    outer = tkinter.Frame(root, bg=BG, padx=24, pady=22)
+    outer.pack(fill="both", expand=True)
+
+    # header: mark, name, tagline
+    header = tkinter.Frame(outer, bg=BG)
+    header.pack(fill="x")
+    try:
+        logo = tkinter.PhotoImage(file=str(HERE / "docs" / "logo.png")).subsample(9, 9)
+        badge = tkinter.Label(header, image=logo, bg=BG)
+        badge.image = logo  # tkinter does not keep its own reference
+        badge.pack(side="left", padx=(0, 14))
+    except Exception:
+        pass
+    titles = tkinter.Frame(header, bg=BG)
+    titles.pack(side="left", anchor="w")
+    tkinter.Label(
+        titles, text="visual-git", bg=BG, fg=TEXT, font=("Segoe UI", 19, "bold")
+    ).pack(anchor="w")
+    tkinter.Label(
+        titles, text="a local web GUI for git", bg=BG, fg=TEXT_FAINT, font=("Segoe UI", 10)
+    ).pack(anchor="w")
+
+    status = tkinter.Label(outer, text="Checking for updates...", bg=BG, fg=TEXT_FAINT,
+                           font=("Segoe UI", 9), anchor="w")
+    status.pack(fill="x", pady=(16, 0))
+
+    # body: swapped for the running view once a server starts
+    body = tkinter.Frame(outer, bg=BG)
+    body.pack(fill="both", expand=True, pady=(14, 0))
+
+    tkinter.Label(body, text="RECENT", bg=BG, fg=TEXT_DIM, font=("Segoe UI", 8, "bold"),
+                  anchor="w").pack(fill="x")
+
+    listbox = tkinter.Listbox(
+        body,
+        bg=SURFACE,
+        fg=TEXT,
+        selectbackground=ACCENT,
+        selectforeground="#ffffff",
+        highlightthickness=1,
+        highlightbackground=BORDER,
+        highlightcolor=BORDER,
+        borderwidth=0,
+        font=("Consolas", 9),
+        activestyle="none",
+    )
+    listbox.pack(fill="both", expand=True, pady=(6, 12))
+
+    recent = load_recent()
+    for path in recent:
+        listbox.insert("end", path)
     if recent:
-        print(f"\n{BOLD}Recent repositories{OFF}")
+        listbox.selection_set(0)
+
+    tkinter.Label(body, text="OR A PATH", bg=BG, fg=TEXT_DIM, font=("Segoe UI", 8, "bold"),
+                  anchor="w").pack(fill="x", pady=(0, 6))
+
+    picker = tkinter.Frame(body, bg=BG)
+    picker.pack(fill="x")
+    entry = tkinter.Entry(
+        picker,
+        bg=SURFACE,
+        fg=TEXT,
+        insertbackground=TEXT,
+        highlightthickness=1,
+        highlightbackground=BORDER,
+        highlightcolor=ACCENT,
+        borderwidth=0,
+        font=("Consolas", 9),
+    )
+    entry.pack(side="left", fill="x", expand=True, ipady=6)
+
+    def button(parent, text, command, primary=False):
+        return tkinter.Button(
+            parent,
+            text=text,
+            command=command,
+            bg=ACCENT if primary else SURFACE_2,
+            fg="#ffffff" if primary else TEXT,
+            activebackground=ACCENT if primary else BORDER,
+            activeforeground="#ffffff" if primary else TEXT,
+            relief="flat",
+            borderwidth=0,
+            highlightthickness=0,
+            font=("Segoe UI", 10, "bold" if primary else "normal"),
+            cursor="hand2",
+            padx=16,
+            pady=7,
+        )
+
+    def browse():
+        chosen = filedialog.askdirectory(title="Choose a git repository")
+        if chosen:
+            entry.delete(0, "end")
+            entry.insert(0, chosen)
+
+    button(picker, "Browse…", browse).pack(side="left", padx=(8, 0))
+
+    message = tkinter.Label(body, text="", bg=BG, fg=ORANGE, font=("Segoe UI", 9), anchor="w")
+    message.pack(fill="x", pady=(10, 0))
+
+    def start():
+        typed = entry.get().strip().strip('"')
+        if typed:
+            candidate = Path(typed).expanduser()
+            if not candidate.is_dir():
+                message.config(text="That folder does not exist.")
+                return
+            root_path = repository_root(candidate)
+            if root_path is None:
+                message.config(text="That folder is not inside a git repository.")
+                return
+        else:
+            selection = listbox.curselection()
+            if not selection:
+                message.config(text="Pick a repository, or type a path.")
+                return
+            root_path = listbox.get(selection[0])
+
+        sys.path.insert(0, str(HERE))
+        import server
+
+        try:
+            httpd, url = server.create_server(root_path)
+        except OSError as exc:
+            message.config(text=str(exc))
+            return
+
+        remember(root_path)
+        state["server"] = httpd
+        state["url"] = url
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        webbrowser.open(url)
+        show_running(root_path, url)
+
+    open_button = button(outer, "Open", start, primary=True)
+    open_button.pack(fill="x", pady=(16, 0), ipady=2)
+    root.bind("<Return>", lambda _event: start())
+
+    def show_running(repo_path, url):
+        """Replace the picker with the address, once a server is up."""
+        body.destroy()
+        open_button.destroy()
+        status.config(text="Running", fg=ACCENT)
+
+        running = tkinter.Frame(outer, bg=BG)
+        running.pack(fill="both", expand=True, pady=(14, 0))
+        tkinter.Label(running, text=repo_path, bg=BG, fg=TEXT, font=("Consolas", 9),
+                      anchor="w", wraplength=440, justify="left").pack(fill="x")
+        tkinter.Label(running, text=url, bg=BG, fg=TEXT_FAINT, font=("Consolas", 8),
+                      anchor="w", wraplength=440, justify="left").pack(fill="x", pady=(8, 0))
+        tkinter.Label(
+            running,
+            text="Closing this window stops the server.",
+            bg=BG,
+            fg=TEXT_FAINT,
+            font=("Segoe UI", 9),
+            anchor="w",
+        ).pack(fill="x", pady=(14, 0))
+
+        buttons = tkinter.Frame(outer, bg=BG)
+        buttons.pack(fill="x", pady=(16, 0))
+        button(buttons, "Open in browser", lambda: webbrowser.open(url), primary=True).pack(
+            side="left", fill="x", expand=True
+        )
+        button(buttons, "Quit", root.destroy).pack(side="left", padx=(8, 0))
+
+    def on_close():
+        if state["server"]:
+            state["server"].shutdown()
+        root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
+
+    def check_updates():
+        ok, text = update_self()
+        status.config(text=text, fg=TEXT_FAINT if ok else ORANGE)
+
+    root.after(80, check_updates)
+    root.mainloop()
+
+
+# --- terminal fallback -----------------------------------------------------
+
+
+def run_console():
+    print("\nvisual-git")
+    ok, text = update_self()
+    print(f"  {text}")
+
+    recent = load_recent()
+    if recent:
+        print("\nRecent repositories")
         for index, path in enumerate(recent, 1):
-            print(f"  {BLUE}{index}{OFF}  {path}")
-        print(f"\n{DIM}Enter a number, or a path (blank for 1){OFF}")
+            print(f"  {index}  {path}")
+        print("\nEnter a number, or a path (blank for 1)")
     else:
-        print(f"\n{DIM}Enter the path to a git repository{OFF}")
+        print("\nEnter the path to a git repository")
 
     while True:
         try:
-            answer = input(f"{BLUE}>{OFF} ").strip().strip('"')
+            answer = input("> ").strip().strip('"')
         except (EOFError, KeyboardInterrupt):
-            return None
+            print("\nNothing chosen.")
+            return
 
         if not answer:
             if recent:
-                return recent[0]
+                chosen = recent[0]
+                break
             continue
-
         if answer.isdigit() and recent:
             index = int(answer) - 1
             if 0 <= index < len(recent):
-                return recent[index]
-            print(f"  {ORANGE}There is no entry with that number.{OFF}")
+                chosen = recent[index]
+                break
+            print("  There is no entry with that number.")
             continue
 
         candidate = Path(answer).expanduser()
         if not candidate.is_dir():
-            print(f"  {ORANGE}That folder does not exist.{OFF}")
+            print("  That folder does not exist.")
             continue
-
-        root = repository_root(candidate)
-        if root is None:
-            print(f"  {ORANGE}That folder is not inside a git repository.{OFF}")
+        root_path = repository_root(candidate)
+        if root_path is None:
+            print("  That folder is not inside a git repository.")
             continue
-        return root
+        chosen = root_path
+        break
 
-
-def main():
-    banner()
-    update_self()
-
-    recent = load_recent()
-    chosen = choose_repository(recent)
-    if chosen is None:
-        print("\nNothing chosen.")
-        return
-
-    save_recent([chosen] + [path for path in recent if path != chosen])
-
-    print(f"\n{BOLD}Opening{OFF} {chosen}")
-    # Import and call rather than spawning a new interpreter: when this is
-    # frozen, sys.executable is this launcher, not python.
+    remember(chosen)
+    print(f"\nOpening {chosen}")
     sys.path.insert(0, str(HERE))
     import server
 
     sys.argv = ["visual-git", chosen]
     server.main()
+
+
+def main():
+    if "--console" not in sys.argv:
+        try:
+            import tkinter
+            from tkinter import filedialog
+        except ImportError:
+            pass
+        else:
+            run_gui(tkinter, filedialog)
+            return
+    run_console()
 
 
 if __name__ == "__main__":

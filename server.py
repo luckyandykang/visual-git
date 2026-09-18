@@ -899,6 +899,24 @@ def resolve_repo(candidate):
     return Path(result.stdout.strip())
 
 
+def create_server(repo, port=7373, attempts=20):
+    """Bind the server and hand back the server object and the URL to open.
+
+    Walks forward from the requested port rather than dying on "address
+    already in use", which is what happens whenever a second repository is
+    opened alongside the first.
+    """
+    Handler.repo = resolve_repo(repo)
+    for offset in range(attempts):
+        try:
+            server = http.server.ThreadingHTTPServer(("127.0.0.1", port + offset), Handler)
+        except OSError:
+            continue
+        url = f"http://127.0.0.1:{server.server_address[1]}/?token={TOKEN}"
+        return server, url
+    raise OSError(f"no free port between {port} and {port + attempts - 1}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="A local web GUI for git.")
     parser.add_argument("repo", nargs="?", default=".", help="path inside the repository")
@@ -906,10 +924,11 @@ def main():
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
 
-    Handler.repo = resolve_repo(args.repo)
+    try:
+        server, url = create_server(args.repo, args.port)
+    except OSError as exc:
+        sys.exit(f"visual-git: {exc}")
 
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    url = f"http://127.0.0.1:{server.server_address[1]}/?token={TOKEN}"
     print(f"visual-git  repo: {Handler.repo}")
     print(f"            open: {url}")
     print("            stop: ctrl-c")

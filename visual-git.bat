@@ -1,14 +1,12 @@
 @echo off
 rem Double-click this to update visual-git and open a repository.
-chcp 65001 >nul
+rem pythonw runs the window without a console behind it; start lets this
+rem script exit immediately so no command prompt lingers.
 cd /d "%~dp0"
 
-where py >nul 2>nul
+where pythonw >nul 2>nul
 if %errorlevel%==0 (
-    py launcher.py
+    start "" pythonw launcher.py
 ) else (
-    python launcher.py
+    start "" py -w launcher.py
 )
-
-echo.
-pause

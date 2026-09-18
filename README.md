@@ -29,31 +29,24 @@ with ctrl-c.
 
 ### The launcher
 
-On Windows, double-click **`visual-git.bat`** instead. It runs `git pull` to
-update itself, lists the repositories you opened before, and takes either a
-number from that list or a new path:
+On Windows, double-click **`visual-git.bat`** instead. It updates itself with
+`git pull`, lists the repositories you opened before, and starts the server
+for whichever you pick — no terminal involved.
 
-```
-visual-git
-Checking for updates...
-  Up to date.
-
-Recent repositories:
-  1. C:\Users\you\..ps\Hard-Algorithms
-  2. C:\Users\you\projects\something
-
-Enter a number, or a path (blank for 1):
->
-```
+<img src="docs/launcher.png" width="380" alt="the launcher window: logo, update status, a list of recent repositories, a path field and an Open button" />
 
 The list lives in `~/.visual-git-recent.json`, outside the repository, and
-paths that no longer exist drop off it.
+paths that no longer exist drop off it. Once a server is running the window
+shows its address and keeps it alive; closing the window stops it.
+
+If tkinter is missing the launcher falls back to the same flow as a prompt in
+the terminal; `--console` forces that on purpose.
 
 To build it into a single `.exe` instead, on the machine that will run it:
 
 ```sh
 pip install pyinstaller
-pyinstaller --onefile --name visual-git --icon visual-git.ico --add-data "static;static" --hidden-import server launcher.py
+pyinstaller --onefile --windowed --name visual-git --icon visual-git.ico --add-data "static;static" --hidden-import server launcher.py
 ```
 
 Put the resulting `dist/visual-git.exe` **in the visual-git folder** — it runs
