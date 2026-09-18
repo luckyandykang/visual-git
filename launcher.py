@@ -18,6 +18,12 @@ import threading
 import webbrowser
 from pathlib import Path
 
+# pythonw.exe gives a process with no console, where stdout and stderr are
+# None. Anything that prints would then raise, so send it nowhere instead.
+for _stream in ("stdout", "stderr"):
+    if getattr(sys, _stream) is None:
+        setattr(sys, _stream, open(os.devnull, "w", encoding="utf-8"))
+
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:

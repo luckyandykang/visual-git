@@ -756,7 +756,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
     server_version = "visual-git"
 
     def log_message(self, fmt, *args):
-        sys.stderr.write("  %s\n" % (fmt % args))
+        # pythonw.exe runs without a console, so sys.stderr is None there.
+        # send_response logs before it writes headers, so raising here costs
+        # the whole reply and the browser reports an empty response.
+        if sys.stderr is not None:
+            sys.stderr.write("  %s\n" % (fmt % args))
 
     # A browser on another site can issue a cross-origin POST but cannot read
     # the response or set a custom header, so requiring both a token and a
